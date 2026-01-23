@@ -4,6 +4,7 @@ getComponents.py - Extract component information from KiCad PCB files
 
 This script reads a .kicad_pcb file from the input folder and extracts
 component information based on the F.CrtYd (Front Courtyard) layer.
+For components without F.CrtYd data, it uses pad information as a fallback.
 It calculates bounding boxes and centers for each component and saves
 the data to a components.csv file.
 """
@@ -34,11 +35,14 @@ def parse_pcb_file(filepath):
     in_footprint = False
     in_fp_line = False
     in_property = False
+    in_pad = False
     current_footprint = {}
     paren_depth = 0
     footprint_depth = 0
     property_depth = 0
+    pad_depth = 0
     fp_line_data = {}
+    pad_data = {}
     
     for line in lines:
         stripped = line.strip()
@@ -55,6 +59,7 @@ def parse_pcb_file(filepath):
                 current_footprint = {
                     'name': match.group(1),
                     'fp_lines': [],
+                    'pads': [],
                     'position': None,
                     'rotation': 0.0
                 }
@@ -69,7 +74,7 @@ def parse_pcb_file(filepath):
             in_property = False
         
         # Get footprint position and rotation (only if not in property block)
-        elif in_footprint and not in_property and stripped.startswith('(at'):
+        elif in_footprint and not in_property and not in_pad and stripped.startswith('(at'):
             match = re.search(r'\(at\s+([\d.-]+)\s+([\d.-]+)(?:\s+([\d.-]+))?\)', line)
             if match and current_footprint['position'] is None:
                 x = float(match.group(1))
@@ -105,10 +110,38 @@ def parse_pcb_file(filepath):
                 in_fp_line = False
                 fp_line_data = {}
         
+        # Start of pad
+        elif in_footprint and stripped.startswith('(pad'):
+            in_pad = True
+            pad_depth = paren_depth
+            pad_data = {}
+        
+        # Extract pad position and rotation
+        elif in_pad and stripped.startswith('(at'):
+            match = re.search(r'\(at\s+([\d.-]+)\s+([\d.-]+)(?:\s+([\d.-]+))?\)', line)
+            if match:
+                pad_data['position'] = (float(match.group(1)), float(match.group(2)))
+                pad_data['rotation'] = float(match.group(3)) if match.group(3) else 0.0
+        
+        # Extract pad size
+        elif in_pad and stripped.startswith('(size'):
+            match = re.search(r'\(size\s+([\d.-]+)\s+([\d.-]+)\)', line)
+            if match:
+                pad_data['size'] = (float(match.group(1)), float(match.group(2)))
+        
+        # End of pad
+        if in_pad and paren_depth < pad_depth:
+            if 'position' in pad_data and 'size' in pad_data:
+                current_footprint['pads'].append(pad_data.copy())
+            in_pad = False
+            pad_data = {}
+        
         # End of footprint
         if in_footprint and paren_depth < footprint_depth:
-            if current_footprint.get('fp_lines') and current_footprint.get('position'):
-                components.append(current_footprint)
+            # Include footprints that have either F.CrtYd or pads
+            if current_footprint.get('position'):
+                if current_footprint.get('fp_lines') or current_footprint.get('pads'):
+                    components.append(current_footprint)
             in_footprint = False
             in_property = False
             current_footprint = {}
@@ -135,6 +168,87 @@ def rotate_point(x, y, angle_deg):
     y_rot = x * sin_a + y * cos_a
     
     return x_rot, y_rot
+
+
+def calculate_bounding_box_from_pads(component, margin=0.5):
+    """
+    Calculate the bounding box for a component based on its pads.
+    This is used as a fallback when F.CrtYd layer is not available.
+    
+    Args:
+        component: Dictionary containing component data with pads
+        margin: Extra margin to add around the pads (mm), default 0.5mm
+        
+    Returns:
+        Dictionary with center, bbox_center, width, height, and name, or None if no pads
+    """
+    if not component['pads']:
+        return None
+    
+    # Get footprint position and rotation
+    fp_x, fp_y = component['position']
+    fp_rotation = component['rotation']
+    
+    # Collect all corner points from pads
+    all_points = []
+    for pad in component['pads']:
+        pad_x, pad_y = pad['position']
+        pad_width, pad_height = pad['size']
+        pad_rotation = pad.get('rotation', 0.0)
+        
+        # Calculate total rotation (footprint rotation + pad rotation)
+        total_rotation = fp_rotation + pad_rotation
+        
+        # Calculate the four corners of the pad (before rotation)
+        corners = [
+            (-pad_width/2, -pad_height/2),
+            (pad_width/2, -pad_height/2),
+            (pad_width/2, pad_height/2),
+            (-pad_width/2, pad_height/2)
+        ]
+        
+        # Rotate corners by total rotation and translate by pad position
+        for corner_x, corner_y in corners:
+            # Rotate corner relative to pad center
+            rotated_corner = rotate_point(corner_x, corner_y, total_rotation)
+            # Translate to pad position (relative to footprint)
+            pad_corner_x = pad_x + rotated_corner[0]
+            pad_corner_y = pad_y + rotated_corner[1]
+            # Rotate by footprint rotation
+            rotated_pad_corner = rotate_point(pad_corner_x, pad_corner_y, fp_rotation)
+            # Add footprint offset to get absolute position
+            all_points.append((fp_x + rotated_pad_corner[0], fp_y + rotated_pad_corner[1]))
+    
+    # Calculate bounding box from all points
+    x_coords = [p[0] for p in all_points]
+    y_coords = [p[1] for p in all_points]
+    
+    min_x = min(x_coords) - margin
+    max_x = max(x_coords) + margin
+    min_y = min(y_coords) - margin
+    max_y = max(y_coords) + margin
+    
+    # Calculate dimensions
+    width = max_x - min_x
+    height = max_y - min_y
+    
+    # Bounding box center
+    bbox_center_x = (min_x + max_x) / 2
+    bbox_center_y = (min_y + max_y) / 2
+    
+    # Component center (footprint position)
+    center_x = fp_x
+    center_y = fp_y
+    
+    return {
+        'name': component['name'],
+        'center_x': center_x,
+        'center_y': center_y,
+        'bbox_center_x': bbox_center_x,
+        'bbox_center_y': bbox_center_y,
+        'width': width,
+        'height': height
+    }
 
 
 def calculate_bounding_box(component):
@@ -240,18 +354,38 @@ def main():
     
     # Parse the PCB file
     components = parse_pcb_file(pcb_file)
-    print(f"Found {len(components)} footprints with F.CrtYd layer")
+    print(f"Found {len(components)} footprints")
     
     # Calculate bounding boxes
     components_data = []
+    components_with_crtyd = 0
+    components_with_pads = 0
+    
     for component in components:
-        bbox_data = calculate_bounding_box(component)
+        bbox_data = None
+        
+        # Try to use F.CrtYd layer first
+        if component.get('fp_lines'):
+            bbox_data = calculate_bounding_box(component)
+            if bbox_data:
+                components_with_crtyd += 1
+        
+        # If no F.CrtYd, use pads as fallback
+        if bbox_data is None and component.get('pads'):
+            bbox_data = calculate_bounding_box_from_pads(component)
+            if bbox_data:
+                components_with_pads += 1
+        
         if bbox_data:
             components_data.append(bbox_data)
     
     # Write to CSV
     output_csv = input_dir / 'components.csv'
     write_components_csv(components_data, output_csv)
+    
+    # Display statistics
+    print(f"Components with F.CrtYd layer: {components_with_crtyd}")
+    print(f"Components using pads (no F.CrtYd): {components_with_pads}")
     
     # Display sample data
     print("\nSample of extracted data (first 5 components):")
