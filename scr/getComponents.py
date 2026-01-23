@@ -196,9 +196,6 @@ def calculate_bounding_box_from_pads(component, margin=0.5):
         pad_width, pad_height = pad['size']
         pad_rotation = pad.get('rotation', 0.0)
         
-        # Calculate total rotation (footprint rotation + pad rotation)
-        total_rotation = fp_rotation + pad_rotation
-        
         # Calculate the four corners of the pad (before rotation)
         corners = [
             (-pad_width/2, -pad_height/2),
@@ -207,10 +204,10 @@ def calculate_bounding_box_from_pads(component, margin=0.5):
             (-pad_width/2, pad_height/2)
         ]
         
-        # Rotate corners by total rotation and translate by pad position
+        # Process each corner
         for corner_x, corner_y in corners:
-            # Rotate corner relative to pad center
-            rotated_corner = rotate_point(corner_x, corner_y, total_rotation)
+            # Rotate corner by pad rotation
+            rotated_corner = rotate_point(corner_x, corner_y, pad_rotation)
             # Translate to pad position (relative to footprint)
             pad_corner_x = pad_x + rotated_corner[0]
             pad_corner_y = pad_y + rotated_corner[1]
