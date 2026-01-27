@@ -56,12 +56,12 @@ def parse_pcb_dimensions(filepath):
         for match in mid_matches:
             all_points.append((float(match[0]), float(match[1])))
         
-        # Extract center points (for circles/arcs)
+        # Extract center points (for circles)
+        # For circles, the 'end' point gives us a point on the circumference
         center_matches = re.findall(r'\(center\s+([\d.-]+)\s+([\d.-]+)\)', element)
-        for match in center_matches:
-            # For circles, we also need the radius
-            # Look for end point which gives us a point on the circle
-            pass  # Center is already added if needed
+        if center_matches:
+            # The end point was already added above, which is sufficient for bounding box
+            pass
     
     if not all_points:
         raise ValueError("No Edge.Cuts elements found in PCB file")
@@ -151,9 +151,13 @@ def convert_to_yolo_format(components, pcb_width, pcb_height, pcb_center_x, pcb_
         # But KiCad uses a coordinate system where we need to consider the PCB bounding box
         # We'll normalize to [0, 1] range based on the PCB dimensions
         
+        # Calculate PCB origin (top-left corner)
+        pcb_origin_x = pcb_center_x - pcb_width / 2
+        pcb_origin_y = pcb_center_y - pcb_height / 2
+        
         # Calculate normalized center coordinates (relative to PCB origin)
-        norm_center_x = (bbox_center_x - (pcb_center_x - pcb_width / 2)) / pcb_width
-        norm_center_y = (bbox_center_y - (pcb_center_y - pcb_height / 2)) / pcb_height
+        norm_center_x = (bbox_center_x - pcb_origin_x) / pcb_width
+        norm_center_y = (bbox_center_y - pcb_origin_y) / pcb_height
         
         # Calculate normalized dimensions
         norm_width = bbox_width / pcb_width
@@ -313,7 +317,7 @@ def main():
         parts = annotation.split()
         class_id = int(parts[0])
         # Find component name for this class
-        component_name = [name for name, cid in class_mapping.items() if cid == class_id][0]
+        component_name = next((name for name, cid in class_mapping.items() if cid == class_id), 'Unknown')
         print(f"{annotation}  # {component_name}")
     print("-" * 80)
 
