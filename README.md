@@ -79,3 +79,24 @@ The script creates two files in `scr/input/`:
    - Normalizes width and height relative to PCB dimensions
    - Assigns a class ID based on the component name
 5. Outputs YOLO format annotations ready for training
+
+## Workflow Example
+
+To extract component data from a KiCad PCB and convert it to YOLO format:
+
+```bash
+cd scr
+
+# Step 1: Extract components from KiCad PCB file
+python getComponents.py
+# Output: scr/input/components.csv
+
+# Step 2: Convert to YOLO format
+python csv2yolo.py
+# Output: scr/input/annotations.txt and scr/input/classes.txt
+```
+
+The complete workflow produces:
+1. **components.csv**: Component positions and dimensions in millimeters
+2. **annotations.txt**: YOLO format annotations (normalized 0-1 coordinates)
+3. **classes.txt**: Mapping of class IDs to component names for training
