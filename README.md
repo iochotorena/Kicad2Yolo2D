@@ -64,6 +64,10 @@ The script creates two files in `scr/input/`:
   - All values are normalized to [0, 1] range
 - `classes.txt`: Mapping of class IDs to component names
 
+**Where are the results saved? / ¿Dónde se guardan los resultados?**
+- **YOLO Annotations**: `scr/input/annotations.txt`
+- **Class Mapping**: `scr/input/classes.txt`
+
 **Example YOLO annotation:**
 ```
 10 0.275780 0.509524 0.176436 0.104987  # Crystal:Crystal_HC49-4H_Vertical
