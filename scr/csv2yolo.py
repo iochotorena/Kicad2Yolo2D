@@ -102,6 +102,7 @@ def read_components_csv(csv_path):
             # Convert string values to floats
             component = {
                 'name': row['name'],
+                'reference': row.get('reference', ''),
                 'center_x': float(row['center_x']),
                 'center_y': float(row['center_y']),
                 'bbox_center_x': float(row['bbox_center_x']),
@@ -114,6 +115,27 @@ def read_components_csv(csv_path):
     return components
 
 
+def get_reference_prefix(reference):
+    """
+    Extract the letter prefix from a component reference.
+    
+    Args:
+        reference: Component reference (e.g., "R1", "C11", "U2", "FB1")
+        
+    Returns:
+        Letter prefix (e.g., "R", "C", "U", "FB")
+    """
+    if not reference:
+        return "UNKNOWN"
+    
+    # Extract leading non-digit characters
+    match = re.match(r'^([A-Za-z]+)', reference)
+    if match:
+        return match.group(1).upper()
+    
+    return "UNKNOWN"
+
+
 def convert_to_yolo_format(components, pcb_width, pcb_height, pcb_center_x, pcb_center_y, class_mapping=None):
     """
     Convert component coordinates to YOLO format.
@@ -124,21 +146,23 @@ def convert_to_yolo_format(components, pcb_width, pcb_height, pcb_center_x, pcb_
         pcb_height: Height of the PCB in mm
         pcb_center_x: Center X coordinate of the PCB
         pcb_center_y: Center Y coordinate of the PCB
-        class_mapping: Optional dictionary mapping component names to class IDs
+        class_mapping: Optional dictionary mapping component reference prefixes to class IDs
         
     Returns:
         List of YOLO format strings
     """
     yolo_annotations = []
     
-    # If no class mapping provided, create a simple one based on unique component names
+    # If no class mapping provided, create one based on unique reference prefixes
     if class_mapping is None:
-        unique_names = sorted(set(c['name'] for c in components))
-        class_mapping = {name: idx for idx, name in enumerate(unique_names)}
+        # Extract all unique reference prefixes
+        unique_prefixes = sorted(set(get_reference_prefix(c['reference']) for c in components))
+        class_mapping = {prefix: idx for idx, prefix in enumerate(unique_prefixes)}
     
     for component in components:
-        # Get class ID
-        class_id = class_mapping.get(component['name'], 0)
+        # Get class ID based on reference prefix
+        reference_prefix = get_reference_prefix(component['reference'])
+        class_id = class_mapping.get(reference_prefix, 0)
         
         # Use bbox_center for YOLO center (this is the actual bounding box center)
         bbox_center_x = component['bbox_center_x']
