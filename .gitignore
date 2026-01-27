@@ -1,1 +1,5 @@
 __pycache__/
+
+# Generated output files
+scr/input/annotations.txt
+scr/input/classes.txt
