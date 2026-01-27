@@ -43,6 +43,7 @@ def parse_pcb_file(filepath):
     pad_depth = 0
     fp_line_data = {}
     pad_data = {}
+    current_property_name = None
     
     for line in lines:
         stripped = line.strip()
@@ -58,6 +59,7 @@ def parse_pcb_file(filepath):
             if match:
                 current_footprint = {
                     'name': match.group(1),
+                    'reference': None,
                     'fp_lines': [],
                     'pads': [],
                     'position': None,
@@ -68,10 +70,18 @@ def parse_pcb_file(filepath):
         elif in_footprint and stripped.startswith('(property'):
             in_property = True
             property_depth = paren_depth
+            # Extract property name
+            match = re.search(r'\(property\s+"([^"]+)"\s+"([^"]+)"', line)
+            if match:
+                current_property_name = match.group(1)
+                # If it's the Reference property, store it
+                if current_property_name == "Reference":
+                    current_footprint['reference'] = match.group(2)
         
         # End of property block
         elif in_property and paren_depth < property_depth:
             in_property = False
+            current_property_name = None
         
         # Get footprint position and rotation (only if not in property block)
         elif in_footprint and not in_property and not in_pad and stripped.startswith('(at'):
@@ -239,6 +249,7 @@ def calculate_bounding_box_from_pads(component, margin=0.5):
     
     return {
         'name': component['name'],
+        'reference': component.get('reference', ''),
         'center_x': center_x,
         'center_y': center_y,
         'bbox_center_x': bbox_center_x,
@@ -302,6 +313,7 @@ def calculate_bounding_box(component):
     
     return {
         'name': component['name'],
+        'reference': component.get('reference', ''),
         'center_x': center_x,
         'center_y': center_y,
         'bbox_center_x': bbox_center_x,
@@ -319,7 +331,7 @@ def write_components_csv(components_data, output_path):
         components_data: List of component dictionaries
         output_path: Path to output CSV file
     """
-    fieldnames = ['name', 'center_x', 'center_y', 'bbox_center_x', 
+    fieldnames = ['name', 'reference', 'center_x', 'center_y', 'bbox_center_x', 
                   'bbox_center_y', 'width', 'height']
     
     with open(output_path, 'w', newline='', encoding='utf-8') as csvfile:
