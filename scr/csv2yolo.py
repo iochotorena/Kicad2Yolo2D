@@ -212,7 +212,7 @@ def write_yolo_annotation(annotations, output_path):
         for annotation in annotations:
             f.write(annotation + '\n')
     
-    print(f"Written {len(annotations)} annotations to {output_path}")
+    print(f"✓ Written {len(annotations)} annotations to: {output_path}")
 
 
 def write_class_mapping(class_mapping, output_path):
@@ -232,7 +232,7 @@ def write_class_mapping(class_mapping, output_path):
         for name, class_id in sorted_mapping:
             f.write(f"{class_id}: {name}\n")
     
-    print(f"Written class mapping to {output_path}")
+    print(f"✓ Written class mapping to: {output_path}")
 
 
 def main():
@@ -331,6 +331,14 @@ def main():
     
     print(f"\nConversion complete!")
     print(f"Found {len(class_mapping)} unique component types")
+    
+    # Display output file locations prominently
+    print("\n" + "=" * 80)
+    print("OUTPUT FILES / ARCHIVOS DE SALIDA")
+    print("=" * 80)
+    print(f"YOLO Annotations: {output_path}")
+    print(f"Class Mapping:    {classes_path}")
+    print("=" * 80)
     
     # Display sample annotations
     print("\nSample YOLO annotations (first 5):")
