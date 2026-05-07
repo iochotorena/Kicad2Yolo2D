@@ -80,6 +80,37 @@ The script creates two files in `scr/input/`:
    - Assigns a class ID based on the component name
 5. Outputs YOLO format annotations ready for training
 
+### get3DModels.py
+
+This script extracts the 3D models associated with each footprint in a KiCad PCB.
+
+**What it does:**
+- Reads a `.kicad_pcb` file from the `scr/input/` folder
+- Parses footprint sections and finds their `(model "...")` entries
+- Extracts the footprint reference, footprint name, 3D model name, and 3D model path
+- Resolves `${KIPRJMOD}` model paths relative to the PCB directory
+- Generates a `footprint_3d_models.csv` file
+
+**Usage:**
+```bash
+cd scr
+python get3DModels.py
+```
+
+**Optional arguments:**
+```bash
+python get3DModels.py --pcb <path_to_pcb> --output <output_csv>
+```
+
+**Output:**
+The script creates `scr/input/footprint_3d_models.csv` containing:
+- `reference`: footprint reference designator
+- `footprint_name`: KiCad footprint name
+- `model_index`: model position within the footprint
+- `model_name`: 3D model file name without extension
+- `model_path`: raw path stored in the PCB file
+- `resolved_model_path`: filesystem path when it can be resolved
+
 ## Workflow Example
 
 To extract component data from a KiCad PCB and convert it to YOLO format:
