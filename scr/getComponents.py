@@ -30,7 +30,7 @@ def main() -> None:
     output_dir = Path(args.output) if args.output else (input_dir if not args.pcb else default_output_directory(pcb_file))
 
     print(f"Processing: {pcb_file.name}")
-    result = process_pcb_file(pcb_file)
+    result = process_pcb_file(pcb_file, output_dir)
     save_processing_result(result, output_dir)
 
     print(f"Found {result.stats.total_footprints} footprints")

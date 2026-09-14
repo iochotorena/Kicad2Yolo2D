@@ -121,6 +121,8 @@ def extract_components(filepath: str | Path) -> tuple[list[dict], ExtractionStat
 
 def write_components_csv(components_data: list[dict], output_path: str | Path) -> None:
     """Write component data to a CSV file."""
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     fieldnames = [
         "name",
         "reference",
@@ -133,7 +135,7 @@ def write_components_csv(components_data: list[dict], output_path: str | Path) -
         "height",
         "bbox_source",
     ]
-    with Path(output_path).open("w", newline="", encoding="utf-8") as csvfile:
+    with output_path.open("w", newline="", encoding="utf-8") as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
         writer.writeheader()
         for component in components_data:
@@ -210,14 +212,18 @@ def convert_to_yolo_format(
 
 def write_yolo_annotation(annotations: list[str], output_path: str | Path) -> None:
     """Write YOLO annotations to a file."""
-    with Path(output_path).open("w", encoding="utf-8") as handle:
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", encoding="utf-8") as handle:
         for annotation in annotations:
             handle.write(annotation + "\n")
 
 
 def write_class_mapping(class_mapping: dict[str, int], output_path: str | Path) -> None:
     """Write class mapping to a file."""
-    with Path(output_path).open("w", encoding="utf-8") as handle:
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("w", encoding="utf-8") as handle:
         handle.write("# Class ID to Component Name Mapping\n")
         handle.write("# Format: class_id: component_name\n\n")
         for name, class_id in sorted(class_mapping.items(), key=lambda item: item[1]):

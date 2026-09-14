@@ -40,13 +40,21 @@ def main() -> None:
     classes_path = Path(args.classes) if args.classes else input_dir / "classes.txt"
 
     print(f"Reading PCB file: {pcb_path.name}")
-    pcb = parse_pcb_dimensions(pcb_path)
-    print(f"PCB Bounding Box: ({pcb.min_x:.2f}, {pcb.min_y:.2f}) -> ({pcb.max_x:.2f}, {pcb.max_y:.2f})")
-    print(f"PCB Size: {pcb.width:.2f} x {pcb.height:.2f} mm")
+    try:
+        pcb = parse_pcb_dimensions(pcb_path)
+        print(f"PCB Bounding Box: ({pcb.min_x:.2f}, {pcb.min_y:.2f}) -> ({pcb.max_x:.2f}, {pcb.max_y:.2f})")
+        print(f"PCB Size: {pcb.width:.2f} x {pcb.height:.2f} mm")
+    except Exception as exc:
+        print(f"Error parsing PCB file: {exc}")
+        return
 
     print(f"\nReading components from: {csv_path.name}")
-    components = read_components_csv(csv_path)
-    print(f"Found {len(components)} components")
+    try:
+        components = read_components_csv(csv_path)
+        print(f"Found {len(components)} components")
+    except Exception as exc:
+        print(f"Error reading CSV file: {exc}")
+        return
 
     print("\nConverting to YOLO format...")
     annotations, class_mapping = convert_to_yolo_format(
