@@ -6,7 +6,7 @@ from __future__ import annotations
 import sys
 from pathlib import Path
 
-from PySide6.QtCore import Qt, QUrl
+from PySide6.QtCore import QObject, QThread, Qt, QUrl, Signal, Slot
 from PySide6.QtGui import QAction, QDesktopServices
 from PySide6.QtWidgets import (
     QApplication,
@@ -31,6 +31,23 @@ from PySide6.QtWidgets import (
 from kicad_extract import default_output_directory, process_source, save_processing_result
 
 
+class ProcessingWorker(QObject):
+    finished = Signal(object)
+    failed = Signal(str)
+
+    def __init__(self, source: Path, output: Path) -> None:
+        super().__init__()
+        self.source = source
+        self.output = output
+
+    @Slot()
+    def run(self) -> None:
+        try:
+            self.finished.emit(process_source(self.source, self.output))
+        except Exception as exc:
+            self.failed.emit(str(exc))
+
+
 class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
@@ -39,6 +56,8 @@ class MainWindow(QMainWindow):
 
         self.results = []
         self.active_output_dir: Path | None = None
+        self.worker_thread: QThread | None = None
+        self.worker: ProcessingWorker | None = None
 
         self._build_ui()
         self._build_menu()
@@ -214,17 +233,41 @@ class MainWindow(QMainWindow):
         output_text = self.output_edit.text().strip() or str(default_output_directory(source))
         self.output_edit.setText(output_text)
 
-        QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
-        try:
-            self.results = process_source(source, output_text)
-            self.active_output_dir = Path(output_text)
-            self._populate_results()
-            self._append_log(f"Procesamiento completado para {len(self.results)} fichero(s).")
-        except Exception as exc:
-            QMessageBox.critical(self, "Error de procesamiento", str(exc))
-            self._append_log(f"Error: {exc}")
-        finally:
-            QApplication.restoreOverrideCursor()
+        self._set_processing_state(True)
+        self.worker_thread = QThread(self)
+        self.worker = ProcessingWorker(source, Path(output_text))
+        self.worker.moveToThread(self.worker_thread)
+        self.worker_thread.started.connect(self.worker.run)
+        self.worker.finished.connect(self._processing_finished)
+        self.worker.failed.connect(self._processing_failed)
+        self.worker.finished.connect(self.worker_thread.quit)
+        self.worker.failed.connect(self.worker_thread.quit)
+        self.worker_thread.finished.connect(self._cleanup_worker)
+        self.worker_thread.start()
+
+    @Slot(object)
+    def _processing_finished(self, results: object) -> None:
+        self.results = list(results)
+        self.active_output_dir = Path(self.output_edit.text().strip())
+        self._populate_results()
+        self._append_log(f"Procesamiento completado para {len(self.results)} fichero(s).")
+        self.statusBar().showMessage("Procesamiento completado", 5000)
+        self._set_processing_state(False)
+
+    @Slot(str)
+    def _processing_failed(self, message: str) -> None:
+        QMessageBox.critical(self, "Error de procesamiento", message)
+        self._append_log(f"Error: {message}")
+        self._set_processing_state(False)
+
+    @Slot()
+    def _cleanup_worker(self) -> None:
+        if self.worker is not None:
+            self.worker.deleteLater()
+            self.worker = None
+        if self.worker_thread is not None:
+            self.worker_thread.deleteLater()
+            self.worker_thread = None
 
     def _populate_results(self) -> None:
         self.results_table.setRowCount(0)
@@ -354,6 +397,13 @@ class MainWindow(QMainWindow):
     def _append_log(self, message: str) -> None:
         current = self.log_edit.toPlainText().strip()
         self.log_edit.setPlainText(f"{current}\n{message}".strip())
+
+    def _set_processing_state(self, active: bool) -> None:
+        if active:
+            QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+            self.statusBar().showMessage("Procesando…")
+        else:
+            QApplication.restoreOverrideCursor()
 
 
 def main() -> int:

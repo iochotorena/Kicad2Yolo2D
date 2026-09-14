@@ -150,18 +150,47 @@ def parse_pcb_file(filepath: str | Path) -> list[dict]:
 def parse_pcb_dimensions(filepath: str | Path) -> PCBDimensions:
     """Parse a KiCad PCB file to extract board dimensions from Edge.Cuts."""
     path = Path(filepath)
-    content = path.read_text(encoding="utf-8")
+    lines = path.read_text(encoding="utf-8").splitlines()
 
-    edge_cuts_pattern = r'\(gr_(?:line|arc|rect|circle|poly)\s+.*?\(layer\s+"Edge\.Cuts"\).*?\)'
-    edge_elements = re.findall(edge_cuts_pattern, content, re.DOTALL)
+    edge_elements: list[str] = []
+    block_lines: list[str] = []
+    block_depth = 0
+    in_edge_block = False
+
+    for line in lines:
+        stripped = line.strip()
+        starts_graphic = stripped.startswith(("(gr_line", "(gr_arc", "(gr_rect", "(gr_circle", "(gr_poly"))
+
+        if starts_graphic and not in_edge_block:
+            in_edge_block = True
+            block_lines = [line]
+            block_depth = line.count("(") - line.count(")")
+            if block_depth <= 0:
+                block_text = "\n".join(block_lines)
+                if '(layer "Edge.Cuts")' in block_text:
+                    edge_elements.append(block_text)
+                in_edge_block = False
+                block_lines = []
+            continue
+
+        if in_edge_block:
+            block_lines.append(line)
+            block_depth += line.count("(") - line.count(")")
+            if block_depth <= 0:
+                block_text = "\n".join(block_lines)
+                if '(layer "Edge.Cuts")' in block_text:
+                    edge_elements.append(block_text)
+                in_edge_block = False
+                block_lines = []
 
     all_points: list[tuple[float, float]] = []
     for element in edge_elements:
         start_matches = re.findall(r"\(start\s+([\d.-]+)\s+([\d.-]+)\)", element)
         end_matches = re.findall(r"\(end\s+([\d.-]+)\s+([\d.-]+)\)", element)
         mid_matches = re.findall(r"\(mid\s+([\d.-]+)\s+([\d.-]+)\)", element)
+        xy_matches = re.findall(r"\(xy\s+([\d.-]+)\s+([\d.-]+)\)", element)
 
-        for match in start_matches + end_matches + mid_matches:
+        for match in start_matches + end_matches + mid_matches + xy_matches:
             all_points.append((float(match[0]), float(match[1])))
 
         if re.findall(r"\(center\s+([\d.-]+)\s+([\d.-]+)\)", element):

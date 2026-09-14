@@ -284,8 +284,6 @@ def process_pcb_file(pcb_path: str | Path, output_dir: str | Path | None = None)
         stats=stats,
         warnings=warnings,
     )
-    if output_dir:
-        save_processing_result(result, output_dir)
     return result
 
 
@@ -322,5 +320,6 @@ def process_source(source_path: str | Path, output_root: str | Path | None = Non
     for pcb_file in pcb_files:
         target_dir = base_output if source.is_file() else base_output / pcb_file.stem
         result = process_pcb_file(pcb_file, target_dir)
+        save_processing_result(result, target_dir)
         results.append(result)
     return results
