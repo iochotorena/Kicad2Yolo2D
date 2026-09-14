@@ -1,7 +1,36 @@
 # Kicad2Yolo2D
 The goal of this project is to extract component placement data from the KiCad project files and use them to create YOLO training datasets.
 
-## Scripts
+## Aplicación de escritorio
+
+El proyecto ahora incluye una aplicación de escritorio en `app.py` construida con PySide6 para:
+
+- abrir un único fichero `.kicad_pcb`
+- procesar una carpeta completa en modo batch
+- reutilizar la extracción y reparación geométrica sin llamar a `subprocess`
+- guardar `components.csv`, `annotations.txt` y `classes.txt`
+- revisar avisos de validación y la tabla de componentes extraídos
+
+### Instalación
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+### Ejecutar la GUI
+
+```bash
+python app.py
+```
+
+### Arquitectura
+
+- `app.py`: interfaz PySide6
+- `kicad_parser.py`: parsing de `.kicad_pcb`, `Edge.Cuts` y geometría común
+- `kicad_extract.py`: extracción, conversión YOLO, validación y guardado
+- `kicad_repair.py`: reparación de bounding boxes a partir de pads
+
+## Scripts CLI
 
 ### getComponents.py
 
@@ -10,8 +39,10 @@ This script extracts component information from KiCad PCB files (.kicad_pcb form
 **What it does:**
 - Reads .kicad_pcb files from the `scr/input/` folder
 - Parses footprint sections to find components
-- Extracts bounding box information from the F.CrtYd (Front Courtyard) layer
+- Extracts bounding box information from the F.CrtYd / B.CrtYd courtyard layers
+- Extracts `Reference` and `Value`
 - Calculates component centers and bounding boxes
+- Repairs missing bounding boxes from pad geometry when courtyard data is missing
 - Generates a `components.csv` file with the extracted data
 
 **Usage:**
@@ -23,9 +54,12 @@ python getComponents.py
 **Output:**
 The script creates `scr/input/components.csv` containing:
 - `name`: Component footprint name
+- `reference`: Component reference
+- `value`: Component value
 - `center_x`, `center_y`: Component center coordinates (mm)
 - `bbox_center_x`, `bbox_center_y`: Bounding box center coordinates (mm)
 - `width`, `height`: Component dimensions (mm)
+- `bbox_source`: `courtyard` or `pads`
 
 **Example output:**
 ```
