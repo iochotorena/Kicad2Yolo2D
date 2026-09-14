@@ -28,7 +28,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from kicad_extract import build_output_directory, default_output_directory, process_source, save_processing_result
+from scr.kicad_extract import build_output_directory, default_output_directory, process_source, save_processing_result
 
 
 class ProcessingWorker(QObject):
@@ -60,6 +60,8 @@ class MainWindow(QMainWindow):
         self.processing_cursor_active = False
         self.worker_thread: QThread | None = None
         self.worker: ProcessingWorker | None = None
+        self.processing_controls: list[QWidget] = []
+        self.processing_actions: list[QAction] = []
 
         self._build_ui()
         self._build_menu()
@@ -72,24 +74,24 @@ class MainWindow(QMainWindow):
         form_layout = QFormLayout()
 
         self.source_edit = QLineEdit()
-        source_button = QPushButton("Examinar…")
-        source_button.clicked.connect(self.choose_source)
-        form_layout.addRow("Origen:", self._row_widget(self.source_edit, source_button))
+        self.source_button = QPushButton("Examinar…")
+        self.source_button.clicked.connect(self.choose_source)
+        form_layout.addRow("Origen:", self._row_widget(self.source_edit, self.source_button))
 
         self.output_edit = QLineEdit()
-        output_button = QPushButton("Examinar…")
-        output_button.clicked.connect(self.choose_output_directory)
-        form_layout.addRow("Destino:", self._row_widget(self.output_edit, output_button))
+        self.output_button = QPushButton("Examinar…")
+        self.output_button.clicked.connect(self.choose_output_directory)
+        form_layout.addRow("Destino:", self._row_widget(self.output_edit, self.output_button))
 
         layout.addLayout(form_layout)
 
         buttons_layout = QHBoxLayout()
-        process_button = QPushButton("Procesar")
-        process_button.clicked.connect(self.process_current_source)
-        save_button = QPushButton("Guardar resultados")
-        save_button.clicked.connect(self.save_results)
-        buttons_layout.addWidget(process_button)
-        buttons_layout.addWidget(save_button)
+        self.process_button = QPushButton("Procesar")
+        self.process_button.clicked.connect(self.process_current_source)
+        self.save_button = QPushButton("Guardar resultados")
+        self.save_button.clicked.connect(self.save_results)
+        buttons_layout.addWidget(self.process_button)
+        buttons_layout.addWidget(self.save_button)
         buttons_layout.addStretch(1)
         layout.addLayout(buttons_layout)
 
@@ -134,32 +136,41 @@ class MainWindow(QMainWindow):
         splitter.setStretchFactor(1, 2)
         layout.addWidget(splitter)
 
+        self.processing_controls = [
+            self.source_edit,
+            self.source_button,
+            self.output_edit,
+            self.output_button,
+            self.process_button,
+            self.save_button,
+        ]
+
         self.setCentralWidget(central)
 
     def _build_menu(self) -> None:
         file_menu = self.menuBar().addMenu("Archivo")
 
-        open_file_action = QAction("Abrir fichero .kicad_pcb", self)
-        open_file_action.triggered.connect(self.open_file_from_menu)
-        file_menu.addAction(open_file_action)
+        self.open_file_action = QAction("Abrir fichero .kicad_pcb", self)
+        self.open_file_action.triggered.connect(self.open_file_from_menu)
+        file_menu.addAction(self.open_file_action)
 
-        open_folder_action = QAction("Abrir carpeta", self)
-        open_folder_action.triggered.connect(self.open_folder_from_menu)
-        file_menu.addAction(open_folder_action)
+        self.open_folder_action = QAction("Abrir carpeta", self)
+        self.open_folder_action.triggered.connect(self.open_folder_from_menu)
+        file_menu.addAction(self.open_folder_action)
 
-        select_output_action = QAction("Seleccionar carpeta de salida", self)
-        select_output_action.triggered.connect(self.choose_output_directory)
-        file_menu.addAction(select_output_action)
+        self.select_output_action = QAction("Seleccionar carpeta de salida", self)
+        self.select_output_action.triggered.connect(self.choose_output_directory)
+        file_menu.addAction(self.select_output_action)
 
         file_menu.addSeparator()
 
-        save_action = QAction("Guardar resultados", self)
-        save_action.triggered.connect(self.save_results)
-        file_menu.addAction(save_action)
+        self.save_action = QAction("Guardar resultados", self)
+        self.save_action.triggered.connect(self.save_results)
+        file_menu.addAction(self.save_action)
 
-        save_as_action = QAction("Guardar como…", self)
-        save_as_action.triggered.connect(self.save_results_as)
-        file_menu.addAction(save_as_action)
+        self.save_as_action = QAction("Guardar como…", self)
+        self.save_as_action.triggered.connect(self.save_results_as)
+        file_menu.addAction(self.save_as_action)
 
         open_results_action = QAction("Abrir carpeta de resultados", self)
         open_results_action.triggered.connect(self.open_results_directory)
@@ -170,6 +181,14 @@ class MainWindow(QMainWindow):
         exit_action = QAction("Salir", self)
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
+
+        self.processing_actions = [
+            self.open_file_action,
+            self.open_folder_action,
+            self.select_output_action,
+            self.save_action,
+            self.save_as_action,
+        ]
 
     @staticmethod
     def _row_widget(line_edit: QLineEdit, button: QPushButton) -> QWidget:
@@ -412,6 +431,10 @@ class MainWindow(QMainWindow):
         self.log_edit.setPlainText(f"{current}\n{message}".strip())
 
     def _set_processing_state(self, active: bool) -> None:
+        for control in self.processing_controls:
+            control.setEnabled(not active)
+        for action in self.processing_actions:
+            action.setEnabled(not active)
         if active:
             if not self.processing_cursor_active:
                 QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
