@@ -268,7 +268,24 @@ def _parse_primitive(block_text: str, origin: tuple[float, float] | None = None,
     return None
 
 
-def _pad_rect(center: tuple[float, float], size: tuple[float, float], rotation: float) -> Rect:
+def _pad_rect(center: tuple[float, float], size: tuple[float, float], rotation: float, shape: str) -> Rect:
+    if shape == "circle":
+        radius = max(size) / 2
+        return Rect(center[0] - radius, center[1] - radius, center[0] + radius, center[1] + radius)
+    if shape == "oval":
+        width, height = size
+        angle = math.radians(rotation)
+        if width >= height:
+            half_segment = (width - height) / 2
+            radius = height / 2
+            extent_x = abs(math.cos(angle)) * half_segment + radius
+            extent_y = abs(math.sin(angle)) * half_segment + radius
+        else:
+            half_segment = (height - width) / 2
+            radius = width / 2
+            extent_x = abs(math.sin(angle)) * half_segment + radius
+            extent_y = abs(math.cos(angle)) * half_segment + radius
+        return Rect(center[0] - extent_x, center[1] - extent_y, center[0] + extent_x, center[1] + extent_y)
     half_width = size[0] / 2
     half_height = size[1] / 2
     corners = [
@@ -407,7 +424,7 @@ def _parse_pad(block_text: str, footprint_origin: tuple[float, float], footprint
     local_x, local_y, local_rotation = at_data
     board_center = _transform_point((local_x, local_y), footprint_origin, footprint_rotation)
     board_rotation = footprint_rotation + local_rotation
-    board_rect = _pad_rect(board_center, size, board_rotation)
+    board_rect = _pad_rect(board_center, size, board_rotation, shape)
     return PadData(
         number=number,
         shape=shape,

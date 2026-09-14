@@ -27,7 +27,7 @@ python app.py
 
 ### Arquitectura
 
-El código compartido del proyecto vive intencionadamente en el directorio `scr/`.
+El código compartido del proyecto vive intencionadamente en el directorio `scr/`, que es el nombre histórico mantenido por compatibilidad con la estructura actual del repositorio. Los nuevos módulos compartidos también deben añadirse ahí mientras se conserve esta organización.
 
 - `app.py`: interfaz PySide6
 - `kicad_parser.py`: parsing de `.kicad_pcb`, `Edge.Cuts` y geometría común

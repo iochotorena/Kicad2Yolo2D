@@ -560,10 +560,13 @@ class MainWindow(QMainWindow):
                 options.height_px,
                 image_format,
             )
+            self.statusBar().showMessage(f"Raster exportado en {destination_path}", 5000)
+            self._append_log(f"Raster exportado en {destination_path}")
+        except Exception as exc:
+            QMessageBox.critical(self, "Error al exportar raster", str(exc))
+            self._append_log(f"Error al exportar raster: {exc}")
         finally:
             self.viewer_widget.restore_visibility_state(state)
-        self.statusBar().showMessage(f"Raster exportado en {destination_path}", 5000)
-        self._append_log(f"Raster exportado en {destination_path}")
 
     def export_vector_image(self) -> None:
         model = self._current_model()
@@ -589,10 +592,13 @@ class MainWindow(QMainWindow):
         try:
             self.viewer_widget.apply_export_tokens(options.include_tokens)
             export_scene_to_svg(self.viewer_widget.scene, self.viewer_widget.board_rect(), destination_path, model)
+            self.statusBar().showMessage(f"SVG exportado en {destination_path}", 5000)
+            self._append_log(f"SVG exportado en {destination_path}")
+        except Exception as exc:
+            QMessageBox.critical(self, "Error al exportar SVG", str(exc))
+            self._append_log(f"Error al exportar SVG: {exc}")
         finally:
             self.viewer_widget.restore_visibility_state(state)
-        self.statusBar().showMessage(f"SVG exportado en {destination_path}", 5000)
-        self._append_log(f"SVG exportado en {destination_path}")
 
     def open_results_directory(self) -> None:
         target = self.output_edit.text().strip() or (str(self.active_output_dir) if self.active_output_dir else "")

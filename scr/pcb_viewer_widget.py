@@ -744,6 +744,8 @@ class PCBViewerWidget(QWidget):
     def _record_visible(self, record: ItemRecord) -> bool:
         if not self._layer_enabled(record.layer_name):
             return False
+        if self._export_layers_override is not None:
+            return record.role not in {"selector", "highlight", "pads-original-bbox"}
         if record.role == "bbox":
             if not (self.show_bboxes_cb.isChecked() or self.validate_mode_cb.isChecked()):
                 return False
