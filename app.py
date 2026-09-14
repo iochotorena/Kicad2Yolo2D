@@ -577,13 +577,16 @@ class MainWindow(QMainWindow):
             return
         options = dialog.options()
         state = self.viewer_widget.capture_visibility_state()
+        destination_path = Path(destination)
+        if destination_path.suffix.lower() != ".svg":
+            destination_path = destination_path.with_suffix(".svg")
         try:
             self.viewer_widget.apply_export_tokens(options.include_tokens)
-            export_scene_to_svg(self.viewer_widget.scene, self.viewer_widget.board_rect(), destination, model)
+            export_scene_to_svg(self.viewer_widget.scene, self.viewer_widget.board_rect(), destination_path, model)
         finally:
             self.viewer_widget.restore_visibility_state(state)
-        self.statusBar().showMessage(f"SVG exportado en {destination}", 5000)
-        self._append_log(f"SVG exportado en {destination}")
+        self.statusBar().showMessage(f"SVG exportado en {destination_path}", 5000)
+        self._append_log(f"SVG exportado en {destination_path}")
 
     def open_results_directory(self) -> None:
         target = self.output_edit.text().strip() or (str(self.active_output_dir) if self.active_output_dir else "")

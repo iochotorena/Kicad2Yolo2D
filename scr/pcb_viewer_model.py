@@ -481,9 +481,9 @@ def _parse_footprint(
             other_layers.append(primitive)
 
     key = (reference, name, round(pos_x, 6), round(pos_y, 6))
-    exported = exported_by_reference.get(reference) if reference else None
-    if exported is None:
-        exported = exported_map.get(key)
+    exported = exported_map.get(key)
+    if exported is None and reference:
+        exported = exported_by_reference.get(reference)
     bbox = _bbox_from_component_row(exported) if exported else None
     if bbox and bbox.source == "pads":
         original_rect = _calculate_pad_bbox(pads, margin=0.0)

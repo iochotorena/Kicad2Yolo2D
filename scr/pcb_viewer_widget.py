@@ -831,10 +831,14 @@ class PCBViewerWidget(QWidget):
         front_layers = {"F.Cu", "F.SilkS", "F.Mask", "F.CrtYd"}
         back_layers = {"B.Cu", "B.SilkS", "B.Mask", "B.CrtYd"}
         for layer_name, widgets in self.layer_widgets.items():
-            if layer_name in front_layers:
+            if side == "All":
+                widgets.checkbox.setChecked(True)
+            elif layer_name in front_layers:
                 widgets.checkbox.setChecked(side != "Bottom")
             elif layer_name in back_layers:
                 widgets.checkbox.setChecked(side != "Top")
+            else:
+                widgets.checkbox.setChecked(True)
         self.side_filter.setCurrentText(side if side in {"Top", "Bottom"} else "All")
 
     def board_rect(self) -> QRectF:
@@ -876,6 +880,10 @@ class PCBViewerWidget(QWidget):
             self.select_reference(selection)
 
     def apply_export_tokens(self, tokens: set[str]) -> None:
+        if not tokens:
+            self._export_layers_override = None
+            self._refresh_visibility()
+            return
         layers: set[str] = set()
         for token in tokens:
             layers.update(EXPORT_TOKEN_MAP.get(token, {token}))

@@ -177,7 +177,8 @@ def export_scene_to_raster(scene, source_rect, destination: str | Path, width_px
     painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
     scene.render(painter, QRectF(0, 0, width_px, height_px), source_rect)
     painter.end()
-    image.save(str(path), image_format.upper())
+    if not image.save(str(path), image_format.upper()):
+        raise ValueError(f"No se pudo guardar la imagen raster en {path}")
     return path
 
 
