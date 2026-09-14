@@ -573,7 +573,7 @@ class MainWindow(QMainWindow):
         if not model:
             QMessageBox.information(self, "Sin PCB", "Procesa y selecciona una PCB primero.")
             return
-        dialog = VectorExportDialog(self)
+        dialog = VectorExportDialog(model, self)
         if dialog.exec() != dialog.DialogCode.Accepted:
             return
         options = dialog.options()
@@ -591,7 +591,14 @@ class MainWindow(QMainWindow):
             destination_path = destination_path.with_suffix(".svg")
         try:
             self.viewer_widget.apply_export_tokens(options.include_tokens)
-            export_scene_to_svg(self.viewer_widget.scene, self.viewer_widget.board_rect(), destination_path, model)
+            export_scene_to_svg(
+                self.viewer_widget.scene,
+                self.viewer_widget.board_rect(),
+                destination_path,
+                model,
+                options.width_px,
+                options.height_px,
+            )
             self.statusBar().showMessage(f"SVG exportado en {destination_path}", 5000)
             self._append_log(f"SVG exportado en {destination_path}")
         except Exception as exc:

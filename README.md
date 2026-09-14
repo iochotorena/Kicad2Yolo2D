@@ -30,9 +30,9 @@ python app.py
 El código compartido del proyecto vive intencionadamente en el directorio `scr/`, que es el nombre histórico mantenido por compatibilidad con la estructura actual del repositorio. Los nuevos módulos compartidos también deben añadirse ahí mientras se conserve esta organización.
 
 - `app.py`: interfaz PySide6
-- `kicad_parser.py`: parsing de `.kicad_pcb`, `Edge.Cuts` y geometría común
-- `kicad_extract.py`: extracción, conversión YOLO, validación y guardado
-- `kicad_repair.py`: reparación de bounding boxes a partir de pads
+- `scr/kicad_parser.py`: parsing de `.kicad_pcb`, `Edge.Cuts` y geometría común
+- `scr/kicad_extract.py`: extracción, conversión YOLO, validación y guardado
+- `scr/kicad_repair.py`: reparación de bounding boxes a partir de pads
 - `scr/pcb_viewer_model.py`: modelo visual de PCB, capas, footprints y warnings
 - `scr/pcb_viewer_widget.py`: visor PCB basado en `QGraphicsScene` / `QGraphicsView`
 - `scr/pcb_export.py`: diálogos y exportación raster/vectorial desde la escena

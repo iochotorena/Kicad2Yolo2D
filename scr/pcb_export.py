@@ -44,6 +44,8 @@ class RasterExportOptions:
 @dataclass
 class VectorExportOptions:
     include_tokens: set[str]
+    width_px: int
+    height_px: int
 
 
 class RasterExportDialog(QDialog):
@@ -148,10 +150,18 @@ class RasterExportDialog(QDialog):
 
 
 class VectorExportDialog(QDialog):
-    def __init__(self, parent=None) -> None:
+    def __init__(self, model: BoardModel, parent=None) -> None:
         super().__init__(parent)
+        self.model = model
         self.setWindowTitle("Exportar imagen vectorial")
         layout = QVBoxLayout(self)
+        form = QFormLayout()
+        self.ppmm_spin = QDoubleSpinBox(self)
+        self.ppmm_spin.setRange(0.1, 500.0)
+        self.ppmm_spin.setDecimals(2)
+        self.ppmm_spin.setValue(20.0)
+        form.addRow("Píxeles por mm", self.ppmm_spin)
+        layout.addLayout(form)
         box = QGroupBox("Capas", self)
         grid = QGridLayout(box)
         self.layer_checks: dict[str, QCheckBox] = {}
@@ -168,7 +178,9 @@ class VectorExportDialog(QDialog):
 
     def options(self) -> VectorExportOptions:
         include_tokens = {token for token, checkbox in self.layer_checks.items() if checkbox.isChecked()}
-        return VectorExportOptions(include_tokens=include_tokens)
+        width_px = max(1, round(self.model.dimensions.width * self.ppmm_spin.value()))
+        height_px = max(1, round(self.model.dimensions.height * self.ppmm_spin.value()))
+        return VectorExportOptions(include_tokens=include_tokens, width_px=width_px, height_px=height_px)
 
 
 def export_scene_to_raster(scene, source_rect, destination: str | Path, width_px: int, height_px: int, image_format: str) -> Path:
@@ -185,12 +197,12 @@ def export_scene_to_raster(scene, source_rect, destination: str | Path, width_px
     return path
 
 
-def export_scene_to_svg(scene, source_rect, destination: str | Path, model: BoardModel) -> Path:
+def export_scene_to_svg(scene, source_rect, destination: str | Path, model: BoardModel, width_px: int, height_px: int) -> Path:
     path = Path(destination)
     generator = QSvgGenerator()
     generator.setFileName(str(path))
     generator.setViewBox(source_rect)
-    canvas_size = QSize(max(1, round(source_rect.width())), max(1, round(source_rect.height())))
+    canvas_size = QSize(max(1, width_px), max(1, height_px))
     generator.setSize(canvas_size)
     generator.setTitle(path.name)
     generator.setDescription(f"PCB export for {model.pcb_path.name}")

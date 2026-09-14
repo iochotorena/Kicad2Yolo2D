@@ -139,6 +139,7 @@ class PCBViewerWidget(QWidget):
         self.layer_widgets: dict[str, LayerWidgets] = {}
         self.layer_items: dict[str, list[ItemRecord]] = {}
         self.selectable_items: dict[str, QGraphicsRectItem] = {}
+        self.selector_references: dict[QGraphicsItem, str] = {}
         self.highlight_items: dict[str, QGraphicsRectItem] = {}
         self.warning_items: dict[str, list[QGraphicsItem]] = {}
         self.reference_items: dict[str, QGraphicsSimpleTextItem] = {}
@@ -306,6 +307,7 @@ class PCBViewerWidget(QWidget):
         self.scene.clear()
         self.layer_items.clear()
         self.selectable_items.clear()
+        self.selector_references.clear()
         self.highlight_items.clear()
         self.warning_items.clear()
         self.reference_items.clear()
@@ -506,10 +508,30 @@ class PCBViewerWidget(QWidget):
         pen = self._primitive_pen(layer_name, 0.1)
         brush_color = QColor(LAYER_COLORS.get(layer_name, QColor("#be123c")))
         brush_color.setAlpha(50 if layer_name == "Pads" else 90)
-        if pad.shape in {"circle", "oval"}:
-            item = QGraphicsEllipseItem(rect.min_x, rect.min_y, rect.width, rect.height)
+        if layer_name == "Vias" or pad.shape in {"circle", "oval"}:
+            item = QGraphicsEllipseItem(
+                pad.board_center[0] - pad.size[0] / 2,
+                pad.board_center[1] - pad.size[1] / 2,
+                pad.size[0],
+                pad.size[1],
+            )
+            item.setTransformOriginPoint(pad.board_center[0], pad.board_center[1])
+            item.setRotation(pad.rotation)
         else:
-            item = QGraphicsRectItem(rect.min_x, rect.min_y, rect.width, rect.height)
+            polygon = QPolygonF()
+            half_width = pad.size[0] / 2
+            half_height = pad.size[1] / 2
+            for local_x, local_y in (
+                (-half_width, -half_height),
+                (half_width, -half_height),
+                (half_width, half_height),
+                (-half_width, half_height),
+            ):
+                angle = math.radians(pad.rotation)
+                rotated_x = local_x * math.cos(angle) - local_y * math.sin(angle)
+                rotated_y = local_x * math.sin(angle) + local_y * math.cos(angle)
+                polygon.append(QPointF(pad.board_center[0] + rotated_x, pad.board_center[1] + rotated_y))
+            item = QGraphicsPolygonItem(polygon)
         item.setPen(pen)
         item.setBrush(brush_color)
         self.scene.addItem(item)
@@ -570,6 +592,7 @@ class PCBViewerWidget(QWidget):
         self.scene.addItem(select_rect)
         if footprint.reference:
             self.selectable_items[footprint.reference] = select_rect
+            self.selector_references[select_rect] = footprint.reference
         self._register_item(select_rect, "Bounding Boxes", side=footprint.side, reference=footprint.reference, bbox_source=footprint.bbox.source if footprint.bbox else None, role="selector")
 
     def _add_center_item(self, footprint: FootprintData) -> None:
@@ -628,10 +651,7 @@ class PCBViewerWidget(QWidget):
         selected_items = self.scene.selectedItems()
         reference = None
         for item in selected_items:
-            for ref, selectable in self.selectable_items.items():
-                if item is selectable:
-                    reference = ref
-                    break
+            reference = self.selector_references.get(item)
             if reference:
                 break
         self._set_selected_reference(reference, emit_signal=True, center=False)
