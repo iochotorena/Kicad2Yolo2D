@@ -769,6 +769,11 @@ class PCBViewerWidget(QWidget):
                 if footprint.reference and self._footprint_matches_filters(footprint)
             }
         selected_reference = self.current_reference()
+        if selected_reference and selected_reference not in self.visible_references:
+            selected_reference = None
+            self._suspend_selection_signal = True
+            self.scene.clearSelection()
+            self._suspend_selection_signal = False
         for layer_name, records in self.layer_items.items():
             opacity = (self.layer_widgets.get(layer_name).slider.value() / 100.0) if layer_name in self.layer_widgets else 1.0
             for record in records:
@@ -777,6 +782,7 @@ class PCBViewerWidget(QWidget):
                     visible = False
                 record.item.setVisible(visible)
                 record.item.setOpacity(1.0 if record.role == "selector" else opacity)
+        self._populate_inspector(selected_reference)
         self.visibleReferencesChanged.emit(sorted(self.visible_references))
 
     def has_active_filters(self) -> bool:

@@ -541,8 +541,14 @@ class MainWindow(QMainWindow):
         state = self.viewer_widget.capture_visibility_state()
         try:
             self.viewer_widget.apply_export_tokens(options.include_tokens)
-            image_format = "jpg" if "jpeg" in selected_filter.lower() else "png"
             destination_path = Path(destination)
+            suffix = destination_path.suffix.lower()
+            if suffix in {".jpg", ".jpeg"}:
+                image_format = "jpg"
+            elif suffix == ".png":
+                image_format = "png"
+            else:
+                image_format = "jpg" if "jpeg" in selected_filter.lower() else "png"
             expected_suffix = ".jpg" if image_format == "jpg" else ".png"
             if destination_path.suffix.lower() != expected_suffix:
                 destination_path = destination_path.with_suffix(expected_suffix)

@@ -195,6 +195,6 @@ def export_scene_to_svg(scene, source_rect, destination: str | Path, model: Boar
     generator.setDescription(f"PCB export for {model.pcb_path.name}")
     painter = QPainter(generator)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-    scene.render(painter, QRectF(0, 0, canvas_size.width(), canvas_size.height()), source_rect)
+    scene.render(painter, QRectF(), source_rect)
     painter.end()
     return path
