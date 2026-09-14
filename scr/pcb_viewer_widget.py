@@ -776,7 +776,7 @@ class PCBViewerWidget(QWidget):
                 if record.role == "highlight" and record.reference != selected_reference:
                     visible = False
                 record.item.setVisible(visible)
-                record.item.setOpacity(opacity)
+                record.item.setOpacity(1.0 if record.role == "selector" else opacity)
         self.visibleReferencesChanged.emit(sorted(self.visible_references))
 
     def has_active_filters(self) -> bool:

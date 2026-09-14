@@ -125,6 +125,8 @@ class RasterExportDialog(QDialog):
 
     def _resolved_size(self) -> tuple[int, int]:
         dims = self.model.dimensions
+        if dims.width <= 0 or dims.height <= 0:
+            return max(1, self.width_spin.value()), max(1, self.height_spin.value() or self.width_spin.value())
         if self.ppmm_spin.value() > 0:
             width = max(1, round(dims.width * self.ppmm_spin.value()))
             height = max(1, round(dims.height * self.ppmm_spin.value()))

@@ -346,6 +346,8 @@ def _bbox_from_component_row(component: dict) -> BBoxData:
 
 
 def _normalize_bbox(rect: Rect, dimensions: PCBDimensions) -> dict[str, float]:
+    if dimensions.width <= 0 or dimensions.height <= 0:
+        return {"x_center": 0.0, "y_center": 0.0, "width": 0.0, "height": 0.0}
     return {
         "x_center": (rect.center_x - dimensions.min_x) / dimensions.width,
         "y_center": (rect.center_y - dimensions.min_y) / dimensions.height,
@@ -615,7 +617,22 @@ def build_board_model(result: ProcessingResult) -> BoardModel:
     warnings = list(dict.fromkeys(warnings))
 
     layer_names = list(PRIMARY_LAYER_ORDER)
-    extras = sorted(name for name in board_layers if name not in layer_names)
+    discovered_layers = set(board_layers)
+    for footprint in footprints:
+        for primitive in (
+            footprint.courtyard
+            + footprint.silkscreen
+            + footprint.mask
+            + footprint.copper
+            + footprint.other_layers
+        ):
+            discovered_layers.add(primitive.layer)
+    if tracks:
+        discovered_layers.add("Tracks")
+    if vias:
+        discovered_layers.add("Vias")
+    discovered_layers.add("Pads")
+    extras = sorted(name for name in discovered_layers if name not in layer_names)
     layer_names.extend(extras)
 
     return BoardModel(
