@@ -309,7 +309,7 @@ def save_processing_result(result: ProcessingResult, output_dir: str | Path) -> 
 
 
 def process_source(source_path: str | Path, output_root: str | Path | None = None) -> list[ProcessingResult]:
-    """Process a single PCB or a directory of PCB files."""
+    """Process a single PCB or a directory of PCB files without persisting outputs."""
     source = Path(source_path)
     pcb_files = find_pcb_files(source)
     if not pcb_files:
@@ -320,6 +320,5 @@ def process_source(source_path: str | Path, output_root: str | Path | None = Non
     for pcb_file in pcb_files:
         target_dir = base_output if source.is_file() else base_output / pcb_file.stem
         result = process_pcb_file(pcb_file, target_dir)
-        save_processing_result(result, target_dir)
         results.append(result)
     return results

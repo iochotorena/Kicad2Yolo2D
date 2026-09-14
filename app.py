@@ -57,6 +57,7 @@ class MainWindow(QMainWindow):
         self.results = []
         self.active_output_dir: Path | None = None
         self.auto_output_path: str | None = None
+        self.processing_cursor_active = False
         self.worker_thread: QThread | None = None
         self.worker: ProcessingWorker | None = None
 
@@ -257,15 +258,15 @@ class MainWindow(QMainWindow):
         self.results = list(results)
         self.active_output_dir = Path(self.output_edit.text().strip())
         self._populate_results()
-        self._append_log(f"Procesamiento completado para {len(self.results)} fichero(s).")
-        self.statusBar().showMessage("Procesamiento completado", 5000)
         self._set_processing_state(False)
+        self._append_log(f"Procesamiento completado para {len(self.results)} fichero(s). Usa Guardar resultados para persistirlos.")
+        self.statusBar().showMessage("Procesamiento completado", 5000)
 
     @Slot(str)
     def _processing_failed(self, message: str) -> None:
         QMessageBox.critical(self, "Error de procesamiento", message)
-        self._append_log(f"Error: {message}")
         self._set_processing_state(False)
+        self._append_log(f"Error: {message}")
 
     @Slot()
     def _cleanup_worker(self) -> None:
@@ -408,10 +409,13 @@ class MainWindow(QMainWindow):
 
     def _set_processing_state(self, active: bool) -> None:
         if active:
-            QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+            if not self.processing_cursor_active:
+                QApplication.setOverrideCursor(Qt.CursorShape.WaitCursor)
+                self.processing_cursor_active = True
             self.statusBar().showMessage("Procesando…")
-        else:
+        elif self.processing_cursor_active:
             QApplication.restoreOverrideCursor()
+            self.processing_cursor_active = False
 
 
 def main() -> int:
