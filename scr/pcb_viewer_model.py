@@ -435,7 +435,12 @@ def _parse_pad(block_text: str, footprint_origin: tuple[float, float], footprint
     )
 
 
-def _parse_footprint(block_text: str, dimensions: PCBDimensions, exported_map: dict[tuple[str, str, float, float], dict]) -> FootprintData | None:
+def _parse_footprint(
+    block_text: str,
+    dimensions: PCBDimensions,
+    exported_map: dict[tuple[str, str, float, float], dict],
+    exported_by_reference: dict[str, dict],
+) -> FootprintData | None:
     name = _match_footprint_name(block_text)
     layer = _match_layer(block_text) or ""
     at_data = _match_at(block_text)
@@ -476,7 +481,9 @@ def _parse_footprint(block_text: str, dimensions: PCBDimensions, exported_map: d
             other_layers.append(primitive)
 
     key = (reference, name, round(pos_x, 6), round(pos_y, 6))
-    exported = exported_map.get(key)
+    exported = exported_by_reference.get(reference) if reference else None
+    if exported is None:
+        exported = exported_map.get(key)
     bbox = _bbox_from_component_row(exported) if exported else None
     if bbox and bbox.source == "pads":
         original_rect = _calculate_pad_bbox(pads, margin=0.0)
@@ -540,11 +547,11 @@ def _parse_segment(block_text: str) -> GraphicPrimitive | None:
 
 def _parse_via(block_text: str) -> PadData | None:
     at_data = _match_at(block_text)
-    size = _match_float_pair(r"\(size\s+([\d.-]+)\s+([\d.-]+)\)", block_text)
-    if not at_data or not size:
+    size_match = re.search(r"\(size\s+([\d.-]+)\)", block_text)
+    if not at_data or not size_match:
         return None
     center = (at_data[0], at_data[1])
-    diameter = size[0]
+    diameter = float(size_match.group(1))
     rect = Rect(center[0] - diameter / 2, center[1] - diameter / 2, center[0] + diameter / 2, center[1] + diameter / 2)
     return PadData(
         number="via",
@@ -563,10 +570,14 @@ def build_board_model(result: ProcessingResult) -> BoardModel:
     pcb_text = result.pcb_path.read_text(encoding="utf-8")
     lines = pcb_text.splitlines()
 
+    exported_by_reference: dict[str, dict] = {}
     exported_map: dict[tuple[str, str, float, float], dict] = {}
     for component in result.components:
+        reference = component.get("reference", "")
+        if reference:
+            exported_by_reference[reference] = component
         key = (
-            component.get("reference", ""),
+            reference,
             component.get("name", ""),
             round(float(component.get("center_x", 0.0)), 6),
             round(float(component.get("center_y", 0.0)), 6),
@@ -581,7 +592,7 @@ def build_board_model(result: ProcessingResult) -> BoardModel:
     footprints = [
         footprint
         for block in footprint_blocks
-        if (footprint := _parse_footprint(block, result.pcb_dimensions, exported_map)) is not None
+        if (footprint := _parse_footprint(block, result.pcb_dimensions, exported_map, exported_by_reference)) is not None
     ]
 
     edge_cuts: list[GraphicPrimitive] = []

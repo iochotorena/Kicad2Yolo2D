@@ -467,16 +467,21 @@ class MainWindow(QMainWindow):
 
     def _apply_component_table_visibility(self, visible_references: list[str]) -> None:
         visible_set = set(visible_references)
-        if not visible_set and self.viewer_widget.model is not None:
+        filters_active = self.viewer_widget.has_active_filters()
+        if not visible_set and self.viewer_widget.model is not None and not filters_active:
             visible_set = {
                 footprint.reference
                 for footprint in self.viewer_widget.model.footprints
-                if footprint.reference and self.viewer_widget.reference_filter.text().strip() == "" and self.viewer_widget.value_filter.text().strip() == "" and self.viewer_widget.side_filter.currentText() == "All" and self.viewer_widget.bbox_source_filter.currentText() == "All" and self.viewer_widget.bbox_ok_filter.currentText() == "All"
+                if footprint.reference
             }
         for row in range(self.components_table.rowCount()):
             item = self.components_table.item(row, 1)
             reference = item.data(Qt.ItemDataRole.UserRole) if item else None
-            hide = bool(visible_set) and isinstance(reference, str) and reference not in visible_set
+            hide = filters_active or bool(visible_set)
+            if isinstance(reference, str) and reference:
+                hide = hide and reference not in visible_set
+            else:
+                hide = filters_active
             self.components_table.setRowHidden(row, hide)
 
     def save_results(self) -> None:

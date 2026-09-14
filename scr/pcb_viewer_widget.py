@@ -697,10 +697,12 @@ class PCBViewerWidget(QWidget):
 
     def _footprint_matches_filters(self, footprint: FootprintData) -> bool:
         ref_text = self.reference_filter.text().strip().lower()
-        if ref_text and ref_text not in footprint.reference.lower():
+        reference = (footprint.reference or "").lower()
+        if ref_text and ref_text not in reference:
             return False
         value_text = self.value_filter.text().strip().lower()
-        if value_text and value_text not in footprint.value.lower():
+        value = (footprint.value or "").lower()
+        if value_text and value_text not in value:
             return False
         side_text = self.side_filter.currentText()
         if side_text != "All" and footprint.side != side_text:
@@ -766,15 +768,27 @@ class PCBViewerWidget(QWidget):
                 for footprint in self.model.footprints
                 if footprint.reference and self._footprint_matches_filters(footprint)
             }
+        selected_reference = self.current_reference()
         for layer_name, records in self.layer_items.items():
             opacity = (self.layer_widgets.get(layer_name).slider.value() / 100.0) if layer_name in self.layer_widgets else 1.0
             for record in records:
                 visible = self._record_visible(record)
-                if record.role == "highlight" and record.reference != self.current_reference():
+                if record.role == "highlight" and record.reference != selected_reference:
                     visible = False
                 record.item.setVisible(visible)
                 record.item.setOpacity(opacity)
         self.visibleReferencesChanged.emit(sorted(self.visible_references))
+
+    def has_active_filters(self) -> bool:
+        return any(
+            (
+                bool(self.reference_filter.text().strip()),
+                bool(self.value_filter.text().strip()),
+                self.side_filter.currentText() != "All",
+                self.bbox_source_filter.currentText() != "All",
+                self.bbox_ok_filter.currentText() != "All",
+            )
+        )
 
     def current_reference(self) -> str | None:
         for ref, item in self.highlight_items.items():
