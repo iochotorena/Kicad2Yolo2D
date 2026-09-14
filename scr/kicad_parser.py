@@ -22,11 +22,23 @@ class PCBDimensions:
 
 
 def rotate_point(x: float, y: float, angle_deg: float) -> tuple[float, float]:
-    """Rotate a point around the origin."""
+    """Rotate a point around the origin using standard mathematical rotation."""
     angle_rad = math.radians(angle_deg)
     cos_a = math.cos(angle_rad)
     sin_a = math.sin(angle_rad)
     return x * cos_a - y * sin_a, x * sin_a + y * cos_a
+
+
+def transform_footprint_point(
+    local_x: float,
+    local_y: float,
+    footprint_x: float,
+    footprint_y: float,
+    footprint_rotation: float,
+) -> tuple[float, float]:
+    """Transform a footprint-local point into PCB coordinates."""
+    rotated_x, rotated_y = rotate_point(local_x, local_y, -footprint_rotation)
+    return footprint_x + rotated_x, footprint_y + rotated_y
 
 
 def _circle_extents(center: tuple[float, float], edge: tuple[float, float]) -> list[tuple[float, float]]:
