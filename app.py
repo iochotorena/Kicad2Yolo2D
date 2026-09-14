@@ -28,7 +28,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from kicad_extract import default_output_directory, process_source, save_processing_result
+from kicad_extract import build_output_directory, default_output_directory, process_source, save_processing_result
 
 
 class ProcessingWorker(QObject):
@@ -296,7 +296,7 @@ class MainWindow(QMainWindow):
                 str(result.stats.components_with_courtyard),
                 str(result.stats.components_repaired_from_pads),
                 str(len(result.warnings)),
-                str(result.output_dir or ""),
+                str(result.output_dir or result.planned_output_dir or ""),
             ]
             for column, value in enumerate(values):
                 self.results_table.setItem(row, column, QTableWidgetItem(value))
@@ -340,7 +340,7 @@ class MainWindow(QMainWindow):
             "\n".join(
                 [
                     f"PCB: {result.pcb_path}",
-                    f"Salida: {result.output_dir}",
+                    f"Salida: {result.output_dir or result.planned_output_dir}",
                     f"Footprints: {result.stats.total_footprints}",
                     f"Exportados: {result.stats.exported_components}",
                     f"Courtyard: {result.stats.components_with_courtyard}",
@@ -387,7 +387,7 @@ class MainWindow(QMainWindow):
                 save_processing_result(self.results[0], directory)
             else:
                 for result in self.results:
-                    save_processing_result(result, directory / result.pcb_path.stem)
+                    save_processing_result(result, build_output_directory(source, directory, result.pcb_path))
             self.active_output_dir = directory
             self._populate_results()
             self._append_log(f"Resultados guardados en {directory}")

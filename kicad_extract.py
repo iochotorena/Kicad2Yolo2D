@@ -25,6 +25,7 @@ class ExtractionStats:
 class ProcessingResult:
     pcb_path: Path
     output_dir: Path | None
+    planned_output_dir: Path | None
     components: list[dict]
     annotations: list[str]
     class_mapping: dict[str, int]
@@ -276,7 +277,8 @@ def process_pcb_file(pcb_path: str | Path, output_dir: str | Path | None = None)
     warnings = validate_result(components, pcb_dimensions, stats)
     result = ProcessingResult(
         pcb_path=pcb_file,
-        output_dir=Path(output_dir) if output_dir else None,
+        output_dir=None,
+        planned_output_dir=Path(output_dir) if output_dir else None,
         components=components,
         annotations=annotations,
         class_mapping=class_mapping,
@@ -301,11 +303,20 @@ def save_processing_result(result: ProcessingResult, output_dir: str | Path) -> 
     write_class_mapping(result.class_mapping, classes_path)
 
     result.output_dir = destination
+    result.planned_output_dir = destination
     return {
         "components_csv": components_path,
         "annotations": annotations_path,
         "classes": classes_path,
     }
+
+
+def build_output_directory(source_path: str | Path, output_root: str | Path, pcb_file: str | Path) -> Path:
+    """Resolve the destination directory for a specific PCB."""
+    source = Path(source_path)
+    root = Path(output_root)
+    pcb = Path(pcb_file)
+    return root if source.is_file() else root / pcb.stem
 
 
 def process_source(source_path: str | Path, output_root: str | Path | None = None) -> list[ProcessingResult]:
@@ -318,7 +329,7 @@ def process_source(source_path: str | Path, output_root: str | Path | None = Non
     base_output = Path(output_root) if output_root else default_output_directory(source)
     results = []
     for pcb_file in pcb_files:
-        target_dir = base_output if source.is_file() else base_output / pcb_file.stem
+        target_dir = build_output_directory(source, base_output, pcb_file)
         result = process_pcb_file(pcb_file, target_dir)
         results.append(result)
     return results
