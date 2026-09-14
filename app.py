@@ -226,6 +226,10 @@ class MainWindow(QMainWindow):
             self.auto_output_path = default_output
 
     def process_current_source(self) -> None:
+        if self.worker_thread is not None and self.worker_thread.isRunning():
+            self.statusBar().showMessage("Ya hay un procesamiento en curso.", 5000)
+            return
+
         source_text = self.source_edit.text().strip()
         if not source_text:
             QMessageBox.warning(self, "Origen requerido", "Selecciona un fichero .kicad_pcb o una carpeta.")

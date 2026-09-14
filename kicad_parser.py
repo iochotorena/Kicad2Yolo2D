@@ -205,7 +205,7 @@ def parse_pcb_dimensions(filepath: str | Path) -> PCBDimensions:
         for match in start_matches + end_matches + mid_matches + xy_matches:
             all_points.append((float(match[0]), float(match[1])))
 
-        if center_matches and end_matches:
+        if element.lstrip().startswith("(gr_circle") and center_matches and end_matches:
             center = (float(center_matches[0][0]), float(center_matches[0][1]))
             edge = (float(end_matches[0][0]), float(end_matches[0][1]))
             all_points.extend(_circle_extents(center, edge))
