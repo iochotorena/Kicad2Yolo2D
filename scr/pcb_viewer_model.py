@@ -539,7 +539,8 @@ def _parse_segment(block_text: str) -> GraphicPrimitive | None:
     layer = _match_layer(block_text)
     start = _match_float_pair(r"\(start\s+([\d.-]+)\s+([\d.-]+)\)", block_text)
     end = _match_float_pair(r"\(end\s+([\d.-]+)\s+([\d.-]+)\)", block_text)
-    width = _match_stroke_width(block_text)
+    width_match = re.search(r"\(width\s+([\d.-]+)\)", block_text)
+    width = float(width_match.group(1)) if width_match else 0.15
     if not (layer and start and end):
         return None
     return GraphicPrimitive("line", layer, [start, end], width)

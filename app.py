@@ -541,20 +541,23 @@ class MainWindow(QMainWindow):
         state = self.viewer_widget.capture_visibility_state()
         try:
             self.viewer_widget.apply_export_tokens(options.include_tokens)
-            suffix = Path(destination).suffix.lower()
-            image_format = "jpg" if suffix in {".jpg", ".jpeg"} or "jpeg" in selected_filter.lower() else "png"
+            image_format = "jpg" if "jpeg" in selected_filter.lower() else "png"
+            destination_path = Path(destination)
+            expected_suffix = ".jpg" if image_format == "jpg" else ".png"
+            if destination_path.suffix.lower() != expected_suffix:
+                destination_path = destination_path.with_suffix(expected_suffix)
             export_scene_to_raster(
                 self.viewer_widget.scene,
                 self.viewer_widget.board_rect(),
-                destination,
+                destination_path,
                 options.width_px,
                 options.height_px,
                 image_format,
             )
         finally:
             self.viewer_widget.restore_visibility_state(state)
-        self.statusBar().showMessage(f"Raster exportado en {destination}", 5000)
-        self._append_log(f"Raster exportado en {destination}")
+        self.statusBar().showMessage(f"Raster exportado en {destination_path}", 5000)
+        self._append_log(f"Raster exportado en {destination_path}")
 
     def export_vector_image(self) -> None:
         model = self._current_model()
