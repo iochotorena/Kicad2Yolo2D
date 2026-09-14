@@ -50,10 +50,10 @@ La pestaña **PCB Viewer** añade:
 
 ### Exportación
 
-Desde `Archivo -> Export` se puede exportar:
+Desde `Archivo -> Exportar` se puede exportar:
 
-- **Raster image**: `PNG` o `JPG` con tamaño fijo o `px/mm`
-- **Vector image**: `SVG`
+- **Imagen raster**: `PNG` o `JPG` con tamaño fijo o `px/mm`
+- **Imagen vectorial**: `SVG`
 
 La exportación usa el mismo sistema geométrico físico de la PCB que se utiliza para las coordenadas YOLO.
 

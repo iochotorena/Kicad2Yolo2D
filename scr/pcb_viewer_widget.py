@@ -547,7 +547,8 @@ class PCBViewerWidget(QWidget):
             highlight.setBrush(Qt.BrushStyle.NoBrush)
             highlight.setVisible(False)
             self.scene.addItem(highlight)
-            self.highlight_items[footprint.reference] = highlight
+            if footprint.reference:
+                self.highlight_items[footprint.reference] = highlight
             self._register_item(highlight, "Bounding Boxes", side=footprint.side, reference=footprint.reference, role="highlight")
             if bbox.original_rect is not None:
                 original = bbox.original_rect
@@ -560,7 +561,9 @@ class PCBViewerWidget(QWidget):
                 self._register_item(original_item, "Bounding Boxes", side=footprint.side, reference=footprint.reference, role="pads-original-bbox")
             select_rect = QGraphicsRectItem(bbox.rect.min_x, bbox.rect.min_y, bbox.rect.width, bbox.rect.height)
 
-        select_rect.setPen(QPen(Qt.PenStyle.NoPen))
+        no_pen = QPen()
+        no_pen.setStyle(Qt.PenStyle.NoPen)
+        select_rect.setPen(no_pen)
         select_rect.setBrush(QColor(0, 0, 0, 0))
         select_rect.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIsSelectable, True)
         select_rect.setToolTip(self._tooltip_for_footprint(footprint))

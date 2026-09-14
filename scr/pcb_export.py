@@ -173,7 +173,8 @@ class VectorExportDialog(QDialog):
 
 def export_scene_to_raster(scene, source_rect, destination: str | Path, width_px: int, height_px: int, image_format: str) -> Path:
     path = Path(destination)
-    image = QImage(QSize(width_px, height_px), QImage.Format.Format_ARGB32)
+    qt_format = QImage.Format.Format_RGB32 if image_format.lower() in {"jpg", "jpeg"} else QImage.Format.Format_ARGB32
+    image = QImage(QSize(width_px, height_px), qt_format)
     image.fill(QColor("white"))
     painter = QPainter(image)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
