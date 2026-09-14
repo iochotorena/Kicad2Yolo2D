@@ -9,10 +9,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 try:
-    from .kicad_parser import PCBDimensions, parse_pcb_dimensions, parse_pcb_file, rotate_point
+    from .kicad_parser import PCBDimensions, parse_pcb_dimensions, parse_pcb_file, transform_footprint_point
     from .kicad_repair import calculate_bounding_box_from_pads
 except ImportError:  # pragma: no cover - script fallback
-    from kicad_parser import PCBDimensions, parse_pcb_dimensions, parse_pcb_file, rotate_point
+    from kicad_parser import PCBDimensions, parse_pcb_dimensions, parse_pcb_file, transform_footprint_point
     from kicad_repair import calculate_bounding_box_from_pads
 
 
@@ -48,10 +48,12 @@ def calculate_bounding_box(component: dict) -> dict | None:
 
     all_points = []
     for fp_line in component["fp_lines"]:
-        start_rot = rotate_point(fp_line["start"][0], fp_line["start"][1], rotation)
-        end_rot = rotate_point(fp_line["end"][0], fp_line["end"][1], rotation)
-        all_points.append((fp_x + start_rot[0], fp_y + start_rot[1]))
-        all_points.append((fp_x + end_rot[0], fp_y + end_rot[1]))
+        all_points.append(
+            transform_footprint_point(fp_line["start"][0], fp_line["start"][1], fp_x, fp_y, rotation)
+        )
+        all_points.append(
+            transform_footprint_point(fp_line["end"][0], fp_line["end"][1], fp_x, fp_y, rotation)
+        )
 
     x_coords = [point[0] for point in all_points]
     y_coords = [point[1] for point in all_points]
@@ -264,10 +266,24 @@ def validate_result(components: list[dict], pcb_dimensions: PCBDimensions, stats
     for component in components:
         if component["width"] <= 0 or component["height"] <= 0:
             warnings.append(f"{component['name']} tiene una bbox con dimensiones no positivas.")
-        if not (pcb_dimensions.min_x <= component["bbox_center_x"] <= pcb_dimensions.max_x):
-            warnings.append(f"{component['reference'] or component['name']} queda fuera del ancho de la PCB.")
-        if not (pcb_dimensions.min_y <= component["bbox_center_y"] <= pcb_dimensions.max_y):
-            warnings.append(f"{component['reference'] or component['name']} queda fuera del alto de la PCB.")
+        bbox_min_x = component["bbox_center_x"] - component["width"] / 2
+        bbox_max_x = component["bbox_center_x"] + component["width"] / 2
+        bbox_min_y = component["bbox_center_y"] - component["height"] / 2
+        bbox_max_y = component["bbox_center_y"] + component["height"] / 2
+        if (
+            bbox_min_x < pcb_dimensions.min_x
+            or bbox_max_x > pcb_dimensions.max_x
+            or bbox_min_y < pcb_dimensions.min_y
+            or bbox_max_y > pcb_dimensions.max_y
+        ):
+            reference = component["reference"] or component["name"]
+            warnings.append(
+                f"{reference} ({component.get('value', '')}) bbox "
+                f"({bbox_min_x:.4f}, {bbox_min_y:.4f}) -> ({bbox_max_x:.4f}, {bbox_max_y:.4f}) "
+                f"fuera de Edge.Cuts "
+                f"({pcb_dimensions.min_x:.4f}, {pcb_dimensions.min_y:.4f}) -> "
+                f"({pcb_dimensions.max_x:.4f}, {pcb_dimensions.max_y:.4f})."
+            )
 
     return warnings
 

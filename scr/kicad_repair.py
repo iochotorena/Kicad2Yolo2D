@@ -4,9 +4,9 @@
 from __future__ import annotations
 
 try:
-    from .kicad_parser import rotate_point
+    from .kicad_parser import rotate_point, transform_footprint_point
 except ImportError:  # pragma: no cover - script fallback
-    from kicad_parser import rotate_point
+    from kicad_parser import rotate_point, transform_footprint_point
 
 
 def calculate_bounding_box_from_pads(component: dict, margin: float = 0.5) -> dict | None:
@@ -31,11 +31,12 @@ def calculate_bounding_box_from_pads(component: dict, margin: float = 0.5) -> di
         ]
 
         for corner_x, corner_y in corners:
-            rotated_corner = rotate_point(corner_x, corner_y, pad_rotation)
+            rotated_corner = rotate_point(corner_x, corner_y, -pad_rotation)
             pad_corner_x = pad_x + rotated_corner[0]
             pad_corner_y = pad_y + rotated_corner[1]
-            rotated_pad_corner = rotate_point(pad_corner_x, pad_corner_y, fp_rotation)
-            all_points.append((fp_x + rotated_pad_corner[0], fp_y + rotated_pad_corner[1]))
+            all_points.append(
+                transform_footprint_point(pad_corner_x, pad_corner_y, fp_x, fp_y, fp_rotation)
+            )
 
     x_coords = [point[0] for point in all_points]
     y_coords = [point[1] for point in all_points]
