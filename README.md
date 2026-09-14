@@ -10,6 +10,8 @@ El proyecto ahora incluye una aplicación de escritorio en `app.py` construida c
 - reutilizar la extracción y reparación geométrica sin llamar a `subprocess`
 - guardar `components.csv`, `annotations.txt` y `classes.txt`
 - revisar avisos de validación y la tabla de componentes extraídos
+- visualizar la PCB en 2D por capas con selección sincronizada
+- exportar vistas raster (`PNG`, `JPG`) y vectoriales (`SVG`)
 
 ### Instalación
 
@@ -25,10 +27,35 @@ python app.py
 
 ### Arquitectura
 
+El código compartido del proyecto vive intencionadamente en el directorio `scr/`, que es el nombre histórico mantenido por compatibilidad con la estructura actual del repositorio. Los nuevos módulos compartidos también deben añadirse ahí mientras se conserve esta organización.
+
 - `app.py`: interfaz PySide6
-- `kicad_parser.py`: parsing de `.kicad_pcb`, `Edge.Cuts` y geometría común
-- `kicad_extract.py`: extracción, conversión YOLO, validación y guardado
-- `kicad_repair.py`: reparación de bounding boxes a partir de pads
+- `scr/kicad_parser.py`: parsing de `.kicad_pcb`, `Edge.Cuts` y geometría común
+- `scr/kicad_extract.py`: extracción, conversión YOLO, validación y guardado
+- `scr/kicad_repair.py`: reparación de bounding boxes a partir de pads
+- `scr/pcb_viewer_model.py`: modelo visual de PCB, capas, footprints y warnings
+- `scr/pcb_viewer_widget.py`: visor PCB basado en `QGraphicsScene` / `QGraphicsView`
+- `scr/pcb_export.py`: diálogos y exportación raster/vectorial desde la escena
+
+### PCB Viewer
+
+La pestaña **PCB Viewer** añade:
+
+- zoom con rueda, pan con botón central, `Zoom to Fit` y `Reset View`
+- panel lateral de capas con visibilidad y transparencia
+- selección interactiva de footprints con tooltips e inspector
+- sincronización tabla ↔ visor
+- filtros por `Reference`, `Value`, `Side`, `bbox_source` y `bbox_ok`
+- modo **Validate bounding boxes** para revisar pads, courtyards y bboxes reparadas
+
+### Exportación
+
+Desde `Archivo -> Exportar` se puede exportar:
+
+- **Imagen raster**: `PNG` o `JPG` con tamaño fijo o `px/mm`
+- **Imagen vectorial**: `SVG`
+
+La exportación usa el mismo sistema geométrico físico de la PCB que se utiliza para las coordenadas YOLO.
 
 ## Scripts CLI
 
