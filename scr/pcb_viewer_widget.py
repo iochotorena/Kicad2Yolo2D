@@ -889,12 +889,9 @@ class PCBViewerWidget(QWidget):
             self.select_reference(selection)
 
     def apply_export_tokens(self, tokens: set[str]) -> None:
-        if not tokens:
-            self._export_layers_override = None
-            self._refresh_visibility()
-            return
         layers: set[str] = set()
-        for token in tokens:
+        export_tokens = tokens or set(EXPORT_TOKEN_MAP)
+        for token in export_tokens:
             layers.update(EXPORT_TOKEN_MAP.get(token, {token}))
         self._export_layers_override = layers
         self._refresh_visibility()

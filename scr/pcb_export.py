@@ -175,7 +175,7 @@ def export_scene_to_raster(scene, source_rect, destination: str | Path, width_px
     path = Path(destination)
     qt_format = QImage.Format.Format_RGB32 if image_format.lower() in {"jpg", "jpeg"} else QImage.Format.Format_ARGB32
     image = QImage(QSize(width_px, height_px), qt_format)
-    image.fill(QColor("white"))
+    image.fill(QColor("white") if image_format.lower() in {"jpg", "jpeg"} else QColor(0, 0, 0, 0))
     painter = QPainter(image)
     painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
     scene.render(painter, QRectF(0, 0, width_px, height_px), source_rect)

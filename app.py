@@ -539,9 +539,9 @@ class MainWindow(QMainWindow):
         if not destination:
             return
         state = self.viewer_widget.capture_visibility_state()
+        destination_path = Path(destination)
         try:
             self.viewer_widget.apply_export_tokens(options.include_tokens)
-            destination_path = Path(destination)
             suffix = destination_path.suffix.lower()
             if suffix in {".jpg", ".jpeg"}:
                 image_format = "jpg"
