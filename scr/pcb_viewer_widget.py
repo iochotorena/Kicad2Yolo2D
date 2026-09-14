@@ -178,8 +178,8 @@ class PCBViewerWidget(QWidget):
         center_panel = QWidget(self)
         center_layout = QVBoxLayout(center_panel)
         toolbar = QHBoxLayout()
-        zoom_fit_button = QPushButton("Zoom to Fit")
-        reset_button = QPushButton("Reset View")
+        zoom_fit_button = QPushButton("Ajustar a vista")
+        reset_button = QPushButton("Restablecer vista")
         center_button = QPushButton("Centrar selección")
         zoom_fit_button.clicked.connect(self.zoom_to_fit)
         reset_button.clicked.connect(self.reset_view)
@@ -191,18 +191,18 @@ class PCBViewerWidget(QWidget):
         center_layout.addLayout(toolbar)
 
         toggles = QHBoxLayout()
-        self.show_bboxes_cb = QCheckBox("Show bounding boxes")
+        self.show_bboxes_cb = QCheckBox("Mostrar bounding boxes")
         self.show_bboxes_cb.setChecked(True)
-        self.show_centers_cb = QCheckBox("Show component centers")
-        self.show_refs_cb = QCheckBox("Show references")
+        self.show_centers_cb = QCheckBox("Mostrar centros")
+        self.show_refs_cb = QCheckBox("Mostrar referencias")
         self.show_refs_cb.setChecked(True)
-        self.show_courtyards_cb = QCheckBox("Show courtyards")
+        self.show_courtyards_cb = QCheckBox("Mostrar courtyards")
         self.show_courtyards_cb.setChecked(True)
-        self.show_pads_cb = QCheckBox("Show pads")
+        self.show_pads_cb = QCheckBox("Mostrar pads")
         self.show_pads_cb.setChecked(True)
-        self.validate_mode_cb = QCheckBox("Validate bounding boxes")
-        self.show_axes_cb = QCheckBox("Show origin / axes")
-        self.show_dimensions_cb = QCheckBox("Show dimensions")
+        self.validate_mode_cb = QCheckBox("Validar bounding boxes")
+        self.show_axes_cb = QCheckBox("Mostrar origen / ejes")
+        self.show_dimensions_cb = QCheckBox("Mostrar dimensiones")
         for checkbox in (
             self.show_bboxes_cb,
             self.show_centers_cb,
@@ -244,15 +244,15 @@ class PCBViewerWidget(QWidget):
                 widget.textChanged.connect(self._refresh_visibility)
             else:
                 widget.currentTextChanged.connect(self._refresh_visibility)
-        filters_layout.addRow("Reference", self.reference_filter)
-        filters_layout.addRow("Value", self.value_filter)
-        filters_layout.addRow("Side", self.side_filter)
+        filters_layout.addRow("Referencia", self.reference_filter)
+        filters_layout.addRow("Valor", self.value_filter)
+        filters_layout.addRow("Cara", self.side_filter)
         filters_layout.addRow("bbox_source", self.bbox_source_filter)
         filters_layout.addRow("bbox_ok", self.bbox_ok_filter)
         quick_row1 = QHBoxLayout()
-        only_courtyard = QPushButton("Only courtyard")
-        only_repaired = QPushButton("Only repaired")
-        only_missing = QPushButton("Only missing")
+        only_courtyard = QPushButton("Solo courtyard")
+        only_repaired = QPushButton("Solo reparados")
+        only_missing = QPushButton("Solo sin bbox")
         only_courtyard.clicked.connect(lambda: self._set_quick_bbox_filter("courtyard"))
         only_repaired.clicked.connect(lambda: self._set_quick_bbox_filter("pads"))
         only_missing.clicked.connect(lambda: self._set_quick_bbox_filter("missing"))
@@ -282,7 +282,7 @@ class PCBViewerWidget(QWidget):
 
         self.warning_list = QListWidget(self)
         self.warning_list.itemClicked.connect(self._warning_clicked)
-        warnings_box = QGroupBox("Warnings", self)
+        warnings_box = QGroupBox("Avisos", self)
         warnings_layout = QVBoxLayout(warnings_box)
         warnings_layout.addWidget(self.warning_list)
         right_layout.addWidget(warnings_box)
@@ -645,7 +645,7 @@ class PCBViewerWidget(QWidget):
     def _populate_inspector(self, reference: str | None) -> None:
         self.inspector.clear()
         if not reference or reference not in self.footprints_by_reference:
-            self.inspector.addItem("Selecciona un footprint.")
+            self.inspector.addItem("Selecciona un componente.")
             return
         footprint = self.footprints_by_reference[reference]
         bbox = footprint.bbox
@@ -653,23 +653,23 @@ class PCBViewerWidget(QWidget):
             [
                 f"Reference: {footprint.reference or '-'}",
                 f"Value: {footprint.value or '-'}",
-                f"Side: {footprint.side}",
-                f"Position X: {footprint.position[0]:.3f} mm",
-                f"Position Y: {footprint.position[1]:.3f} mm",
-                f"Rotation: {footprint.rotation:.2f}°",
-                f"BBox width: {bbox.width:.3f} mm" if bbox else "BBox width: -",
-                f"BBox height: {bbox.height:.3f} mm" if bbox else "BBox height: -",
-                f"BBox source: {bbox.source_label}" if bbox else "BBox source: missing",
-                f"Inflation factor: {bbox.inflation_factor:.3f}x" if bbox and bbox.inflation_factor else "Inflation factor: -",
-                f"Number of pads used: {bbox.pad_count}" if bbox else f"Number of pads used: {len(footprint.pads)}",
-                f"YOLO X center: {footprint.yolo['x_center']:.6f}" if footprint.yolo else "YOLO X center: -",
-                f"YOLO Y center: {footprint.yolo['y_center']:.6f}" if footprint.yolo else "YOLO Y center: -",
-                f"YOLO Width: {footprint.yolo['width']:.6f}" if footprint.yolo else "YOLO Width: -",
-                f"YOLO Height: {footprint.yolo['height']:.6f}" if footprint.yolo else "YOLO Height: -",
+                f"Cara: {footprint.side}",
+                f"Posición X: {footprint.position[0]:.3f} mm",
+                f"Posición Y: {footprint.position[1]:.3f} mm",
+                f"Rotación: {footprint.rotation:.2f}°",
+                f"BBox ancho: {bbox.width:.3f} mm" if bbox else "BBox ancho: -",
+                f"BBox alto: {bbox.height:.3f} mm" if bbox else "BBox alto: -",
+                f"Origen bbox: {bbox.source_label}" if bbox else "Origen bbox: missing",
+                f"Factor de inflado: {bbox.inflation_factor:.3f}x" if bbox and bbox.inflation_factor else "Factor de inflado: -",
+                f"Número de pads usados: {bbox.pad_count}" if bbox else f"Número de pads usados: {len(footprint.pads)}",
+                f"YOLO X centro: {footprint.yolo['x_center']:.6f}" if footprint.yolo else "YOLO X centro: -",
+                f"YOLO Y centro: {footprint.yolo['y_center']:.6f}" if footprint.yolo else "YOLO Y centro: -",
+                f"YOLO ancho: {footprint.yolo['width']:.6f}" if footprint.yolo else "YOLO ancho: -",
+                f"YOLO alto: {footprint.yolo['height']:.6f}" if footprint.yolo else "YOLO alto: -",
             ]
         )
         if footprint.warnings:
-            self.inspector.addItem("Warnings:")
+            self.inspector.addItem("Avisos:")
             for warning in footprint.warnings:
                 self.inspector.addItem(f"- {warning}")
 

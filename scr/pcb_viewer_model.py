@@ -221,22 +221,6 @@ def _rect_from_points(points: list[tuple[float, float]]) -> Rect:
     return Rect(min(x_values), min(y_values), max(x_values), max(y_values))
 
 
-def _primitive_rect(kind: str, start: tuple[float, float], end: tuple[float, float], mid: tuple[float, float] | None = None) -> Rect:
-    if kind in {"line", "rect"}:
-        points = [start, end]
-    elif kind == "circle":
-        radius = math.dist(start, end)
-        points = [
-            (start[0] - radius, start[1] - radius),
-            (start[0] + radius, start[1] + radius),
-        ]
-    elif kind == "arc" and mid is not None:
-        points = [start, mid, end]
-    else:
-        points = [start, end]
-    return _rect_from_points(points)
-
-
 def _parse_primitive(block_text: str, origin: tuple[float, float] | None = None, rotation: float = 0.0) -> GraphicPrimitive | None:
     header = block_text.lstrip().splitlines()[0].strip()
     layer = _match_layer(block_text)

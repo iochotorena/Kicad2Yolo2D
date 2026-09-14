@@ -49,7 +49,7 @@ class VectorExportOptions:
 class RasterExportDialog(QDialog):
     def __init__(self, model: BoardModel, parent=None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Export raster image")
+        self.setWindowTitle("Exportar imagen raster")
         self.model = model
         self._build_ui()
         self._apply_preset("Custom")
@@ -68,31 +68,31 @@ class RasterExportDialog(QDialog):
         self.width_spin.setRange(1, 20000)
         self.width_spin.setValue(2048)
         self.width_spin.valueChanged.connect(self._update_size_preview)
-        form.addRow("Width px", self.width_spin)
+        form.addRow("Ancho px", self.width_spin)
 
         self.height_spin = QSpinBox(self)
         self.height_spin.setRange(0, 20000)
         self.height_spin.setValue(0)
         self.height_spin.valueChanged.connect(self._update_size_preview)
-        form.addRow("Height px (0=auto)", self.height_spin)
+        form.addRow("Alto px (0=auto)", self.height_spin)
 
         self.ppmm_spin = QDoubleSpinBox(self)
         self.ppmm_spin.setRange(0.0, 500.0)
         self.ppmm_spin.setDecimals(2)
         self.ppmm_spin.setValue(0.0)
         self.ppmm_spin.valueChanged.connect(self._update_size_preview)
-        form.addRow("Pixels per mm (0=off)", self.ppmm_spin)
+        form.addRow("Píxeles por mm (0=off)", self.ppmm_spin)
 
         self.keep_ratio = QCheckBox(self)
         self.keep_ratio.setChecked(True)
         self.keep_ratio.toggled.connect(self._update_size_preview)
-        form.addRow("Keep aspect ratio", self.keep_ratio)
+        form.addRow("Mantener proporción", self.keep_ratio)
 
         self.size_preview = QLabel(self)
-        form.addRow("Resolved size", self.size_preview)
+        form.addRow("Tamaño final", self.size_preview)
         layout.addLayout(form)
 
-        layers_box = QGroupBox("Layers", self)
+        layers_box = QGroupBox("Capas", self)
         layers_layout = QGridLayout(layers_box)
         self.layer_checks: dict[str, QCheckBox] = {}
         for index, token in enumerate(("Edge.Cuts", "Copper", "Silkscreen", "Pads", "Vias", "Courtyard", "Bounding Boxes", "References")):
@@ -150,9 +150,9 @@ class RasterExportDialog(QDialog):
 class VectorExportDialog(QDialog):
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Export vector image")
+        self.setWindowTitle("Exportar imagen vectorial")
         layout = QVBoxLayout(self)
-        box = QGroupBox("Layers", self)
+        box = QGroupBox("Capas", self)
         grid = QGridLayout(box)
         self.layer_checks: dict[str, QCheckBox] = {}
         for index, token in enumerate(("Edge.Cuts", "Copper", "Silkscreen", "Pads", "Vias", "Courtyard", "Bounding Boxes", "References")):
@@ -189,7 +189,7 @@ def export_scene_to_svg(scene, source_rect, destination: str | Path, model: Boar
     generator = QSvgGenerator()
     generator.setFileName(str(path))
     generator.setViewBox(source_rect)
-    canvas_size = QSize(max(1, round(model.dimensions.width * 20)), max(1, round(model.dimensions.height * 20)))
+    canvas_size = QSize(max(1, round(source_rect.width())), max(1, round(source_rect.height())))
     generator.setSize(canvas_size)
     generator.setTitle(path.name)
     generator.setDescription(f"PCB export for {model.pcb_path.name}")

@@ -27,6 +27,8 @@ python app.py
 
 ### Arquitectura
 
+El código compartido del proyecto vive intencionadamente en el directorio `scr/`.
+
 - `app.py`: interfaz PySide6
 - `kicad_parser.py`: parsing de `.kicad_pcb`, `Edge.Cuts` y geometría común
 - `kicad_extract.py`: extracción, conversión YOLO, validación y guardado

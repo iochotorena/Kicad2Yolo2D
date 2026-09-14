@@ -176,11 +176,11 @@ class MainWindow(QMainWindow):
 
         file_menu.addSeparator()
 
-        export_menu = file_menu.addMenu("Export")
-        self.export_raster_action = QAction("Raster image", self)
+        export_menu = file_menu.addMenu("Exportar")
+        self.export_raster_action = QAction("Imagen raster", self)
         self.export_raster_action.triggered.connect(self.export_raster_image)
         export_menu.addAction(self.export_raster_action)
-        self.export_vector_action = QAction("Vector image", self)
+        self.export_vector_action = QAction("Imagen vectorial", self)
         self.export_vector_action.triggered.connect(self.export_vector_image)
         export_menu.addAction(self.export_vector_action)
 
@@ -526,18 +526,18 @@ class MainWindow(QMainWindow):
         if not model:
             QMessageBox.information(self, "Sin PCB", "Procesa y selecciona una PCB primero.")
             return
+        dialog = RasterExportDialog(model, self)
+        if dialog.exec() != dialog.DialogCode.Accepted:
+            return
+        options = dialog.options()
         destination, selected_filter = QFileDialog.getSaveFileName(
             self,
-            "Export raster image",
+            "Exportar imagen raster",
             str(model.pcb_path.with_suffix(".png")),
             "PNG (*.png);;JPEG (*.jpg *.jpeg)",
         )
         if not destination:
             return
-        dialog = RasterExportDialog(model, self)
-        if dialog.exec() != dialog.DialogCode.Accepted:
-            return
-        options = dialog.options()
         state = self.viewer_widget.capture_visibility_state()
         try:
             self.viewer_widget.apply_export_tokens(options.include_tokens)
@@ -570,18 +570,18 @@ class MainWindow(QMainWindow):
         if not model:
             QMessageBox.information(self, "Sin PCB", "Procesa y selecciona una PCB primero.")
             return
+        dialog = VectorExportDialog(self)
+        if dialog.exec() != dialog.DialogCode.Accepted:
+            return
+        options = dialog.options()
         destination, _ = QFileDialog.getSaveFileName(
             self,
-            "Export vector image",
+            "Exportar imagen vectorial",
             str(model.pcb_path.with_suffix(".svg")),
             "SVG (*.svg)",
         )
         if not destination:
             return
-        dialog = VectorExportDialog(self)
-        if dialog.exec() != dialog.DialogCode.Accepted:
-            return
-        options = dialog.options()
         state = self.viewer_widget.capture_visibility_state()
         destination_path = Path(destination)
         if destination_path.suffix.lower() != ".svg":
