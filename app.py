@@ -7,7 +7,7 @@ import sys
 from pathlib import Path
 
 from PySide6.QtCore import QObject, QThread, Qt, QUrl, Signal, Slot
-from PySide6.QtGui import QAction, QDesktopServices
+from PySide6.QtGui import QAction, QColor, QDesktopServices
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
@@ -17,10 +17,10 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QMainWindow,
     QMessageBox,
-    QPushButton,
     QPlainTextEdit,
-    QSplitter,
+    QPushButton,
     QStatusBar,
+    QSplitter,
     QTableWidget,
     QTableWidgetItem,
     QTabWidget,
@@ -29,6 +29,9 @@ from PySide6.QtWidgets import (
 )
 
 from scr.kicad_extract import build_output_directory, default_output_directory, process_source, save_processing_result
+from scr.pcb_export import RasterExportDialog, VectorExportDialog, export_scene_to_raster, export_scene_to_svg
+from scr.pcb_viewer_model import BoardModel, build_board_model
+from scr.pcb_viewer_widget import PCBViewerWidget
 
 
 class ProcessingWorker(QObject):
@@ -52,7 +55,7 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("KiCad2Yolo2D")
-        self.resize(1200, 800)
+        self.resize(1480, 920)
 
         self.results = []
         self.active_output_dir: Path | None = None
@@ -62,6 +65,9 @@ class MainWindow(QMainWindow):
         self.worker: ProcessingWorker | None = None
         self.processing_controls: list[QWidget] = []
         self.processing_actions: list[QAction] = []
+        self.result_models: dict[int, BoardModel] = {}
+        self.current_result_row = -1
+        self._syncing_component_selection = False
 
         self._build_ui()
         self._build_menu()
@@ -82,7 +88,6 @@ class MainWindow(QMainWindow):
         self.output_button = QPushButton("Examinar…")
         self.output_button.clicked.connect(self.choose_output_directory)
         form_layout.addRow("Destino:", self._row_widget(self.output_edit, self.output_button))
-
         layout.addLayout(form_layout)
 
         buttons_layout = QHBoxLayout()
@@ -110,22 +115,30 @@ class MainWindow(QMainWindow):
 
         tabs = QTabWidget()
 
-        self.components_table = QTableWidget(0, 10)
+        self.components_table = QTableWidget(0, 12)
         self.components_table.setHorizontalHeaderLabels(
             [
                 "Name",
                 "Reference",
                 "Value",
-                "Center X",
-                "Center Y",
-                "BBox X",
-                "BBox Y",
+                "Side",
+                "X (mm)",
+                "Y (mm)",
+                "Rotation",
                 "Width",
                 "Height",
                 "Fuente",
+                "Estado",
+                "Avisos",
             ]
         )
+        self.components_table.itemSelectionChanged.connect(self._component_table_selection_changed)
         tabs.addTab(self.components_table, "Componentes")
+
+        self.viewer_widget = PCBViewerWidget(self)
+        self.viewer_widget.footprintSelected.connect(self._viewer_selected_footprint)
+        self.viewer_widget.visibleReferencesChanged.connect(self._apply_component_table_visibility)
+        tabs.addTab(self.viewer_widget, "PCB Viewer")
 
         self.log_edit = QPlainTextEdit()
         self.log_edit.setReadOnly(True)
@@ -133,7 +146,7 @@ class MainWindow(QMainWindow):
 
         splitter.addWidget(tabs)
         splitter.setStretchFactor(0, 1)
-        splitter.setStretchFactor(1, 2)
+        splitter.setStretchFactor(1, 3)
         layout.addWidget(splitter)
 
         self.processing_controls = [
@@ -144,7 +157,6 @@ class MainWindow(QMainWindow):
             self.process_button,
             self.save_button,
         ]
-
         self.setCentralWidget(central)
 
     def _build_menu(self) -> None:
@@ -161,6 +173,16 @@ class MainWindow(QMainWindow):
         self.select_output_action = QAction("Seleccionar carpeta de salida", self)
         self.select_output_action.triggered.connect(self.choose_output_directory)
         file_menu.addAction(self.select_output_action)
+
+        file_menu.addSeparator()
+
+        export_menu = file_menu.addMenu("Export")
+        self.export_raster_action = QAction("Raster image", self)
+        self.export_raster_action.triggered.connect(self.export_raster_image)
+        export_menu.addAction(self.export_raster_action)
+        self.export_vector_action = QAction("Vector image", self)
+        self.export_vector_action.triggered.connect(self.export_vector_image)
+        export_menu.addAction(self.export_vector_action)
 
         file_menu.addSeparator()
 
@@ -188,6 +210,8 @@ class MainWindow(QMainWindow):
             self.select_output_action,
             self.save_action,
             self.save_as_action,
+            self.export_raster_action,
+            self.export_vector_action,
         ]
 
     @staticmethod
@@ -224,13 +248,16 @@ class MainWindow(QMainWindow):
         if file_path:
             self.set_source_path(file_path)
             return
-
         directory_path = QFileDialog.getExistingDirectory(self, "Seleccionar carpeta", str(Path.cwd()))
         if directory_path:
             self.set_source_path(directory_path)
 
     def choose_output_directory(self) -> None:
-        path = QFileDialog.getExistingDirectory(self, "Seleccionar carpeta de salida", self.output_edit.text() or str(Path.cwd()))
+        path = QFileDialog.getExistingDirectory(
+            self,
+            "Seleccionar carpeta de salida",
+            self.output_edit.text() or str(Path.cwd()),
+        )
         if path:
             self.output_edit.setText(path)
             self.auto_output_path = None
@@ -279,10 +306,14 @@ class MainWindow(QMainWindow):
     @Slot(object)
     def _processing_finished(self, results: object) -> None:
         self.results = list(results)
+        self.result_models.clear()
+        self.current_result_row = -1
         self.active_output_dir = Path(self.output_edit.text().strip())
         self._populate_results()
         self._set_processing_state(False)
-        self._append_log(f"Procesamiento completado para {len(self.results)} fichero(s). Usa Guardar resultados para persistirlos.")
+        self._append_log(
+            f"Procesamiento completado para {len(self.results)} fichero(s). Usa Guardar resultados para persistirlos."
+        )
         self.statusBar().showMessage("Procesamiento completado", 5000)
 
     @Slot(str)
@@ -305,14 +336,12 @@ class MainWindow(QMainWindow):
         total_components = 0
         total_repaired = 0
         total_warnings = 0
-
         for result in self.results:
             row = self.results_table.rowCount()
             self.results_table.insertRow(row)
             total_components += result.stats.exported_components
             total_repaired += result.stats.components_repaired_from_pads
             total_warnings += len(result.warnings)
-
             values = [
                 result.pcb_path.name,
                 str(result.stats.exported_components),
@@ -323,42 +352,34 @@ class MainWindow(QMainWindow):
             ]
             for column, value in enumerate(values):
                 self.results_table.setItem(row, column, QTableWidgetItem(value))
-
         self.summary_label.setText(
             f"PCB procesadas: {len(self.results)} | "
             f"Componentes exportados: {total_components} | "
             f"Bounding boxes reparadas: {total_repaired} | "
             f"Avisos: {total_warnings}"
         )
-
         if self.results:
             self.results_table.selectRow(0)
+
+    def _current_model(self) -> BoardModel | None:
+        row = self.results_table.currentRow()
+        if row < 0 or row >= len(self.results):
+            return None
+        if row not in self.result_models:
+            self.result_models[row] = build_board_model(self.results[row])
+        return self.result_models[row]
 
     def show_selected_result_details(self) -> None:
         row = self.results_table.currentRow()
         if row < 0 or row >= len(self.results):
             return
-
+        self.current_result_row = row
         result = self.results[row]
-        self.components_table.setRowCount(0)
-        for component in result.components:
-            current_row = self.components_table.rowCount()
-            self.components_table.insertRow(current_row)
-            values = [
-                component["name"],
-                component["reference"],
-                component.get("value", ""),
-                f"{component['center_x']:.4f}",
-                f"{component['center_y']:.4f}",
-                f"{component['bbox_center_x']:.4f}",
-                f"{component['bbox_center_y']:.4f}",
-                f"{component['width']:.4f}",
-                f"{component['height']:.4f}",
-                component.get("bbox_source", ""),
-            ]
-            for column, value in enumerate(values):
-                self.components_table.setItem(current_row, column, QTableWidgetItem(value))
-
+        model = self._current_model()
+        if model:
+            self.viewer_widget.load_model(model)
+            self._populate_components(model)
+        warning_lines = model.warnings if model else result.warnings
         self.log_edit.setPlainText(
             "\n".join(
                 [
@@ -373,32 +394,108 @@ class MainWindow(QMainWindow):
                     f"({result.pcb_dimensions.max_x:.2f}, {result.pcb_dimensions.max_y:.2f})",
                     "",
                     "Avisos:",
-                    *(result.warnings or ["Sin avisos."]),
+                    *(warning_lines or ["Sin avisos."]),
                 ]
             )
         )
+
+    def _populate_components(self, model: BoardModel) -> None:
+        self._syncing_component_selection = True
+        self.components_table.setRowCount(0)
+        for footprint in model.footprints:
+            row = self.components_table.rowCount()
+            self.components_table.insertRow(row)
+            bbox = footprint.bbox
+            warning_text = "; ".join(footprint.warnings_short) if footprint.warnings_short else "-"
+            values = [
+                footprint.name,
+                footprint.reference,
+                footprint.value,
+                footprint.side,
+                f"{footprint.position[0]:.3f}",
+                f"{footprint.position[1]:.3f}",
+                f"{footprint.rotation:.2f}°",
+                f"{bbox.width:.3f}" if bbox else "-",
+                f"{bbox.height:.3f}" if bbox else "-",
+                bbox.source_label if bbox else "missing",
+                footprint.row_status,
+                warning_text,
+            ]
+            for column, value in enumerate(values):
+                item = QTableWidgetItem(value)
+                if column == 1:
+                    item.setData(Qt.ItemDataRole.UserRole, footprint.reference)
+                self.components_table.setItem(row, column, item)
+            row_color = self._footprint_row_color(footprint)
+            for column in range(self.components_table.columnCount()):
+                self.components_table.item(row, column).setBackground(row_color)
+        self._syncing_component_selection = False
+        self._apply_component_table_visibility(sorted(self.viewer_widget.visible_references))
+
+    @staticmethod
+    def _footprint_row_color(footprint) -> QColor:
+        if footprint.bbox is None:
+            return QColor("#fee2e2")
+        if footprint.warnings_short:
+            return QColor("#fef3c7")
+        if footprint.bbox.source == "pads":
+            return QColor("#ffedd5")
+        return QColor("#ecfdf5")
+
+    def _component_table_selection_changed(self) -> None:
+        if self._syncing_component_selection:
+            return
+        row = self.components_table.currentRow()
+        if row < 0:
+            return
+        item = self.components_table.item(row, 1)
+        if item is None:
+            return
+        reference = item.data(Qt.ItemDataRole.UserRole) or item.text()
+        if isinstance(reference, str) and reference:
+            self.viewer_widget.select_reference(reference, center=True)
+
+    def _viewer_selected_footprint(self, reference: str) -> None:
+        self._syncing_component_selection = True
+        for row in range(self.components_table.rowCount()):
+            item = self.components_table.item(row, 1)
+            if item and (item.data(Qt.ItemDataRole.UserRole) or item.text()) == reference:
+                self.components_table.selectRow(row)
+                self.components_table.scrollToItem(item)
+                break
+        self._syncing_component_selection = False
+
+    def _apply_component_table_visibility(self, visible_references: list[str]) -> None:
+        visible_set = set(visible_references)
+        if not visible_set and self.viewer_widget.model is not None:
+            visible_set = {
+                footprint.reference
+                for footprint in self.viewer_widget.model.footprints
+                if footprint.reference and self.viewer_widget.reference_filter.text().strip() == "" and self.viewer_widget.value_filter.text().strip() == "" and self.viewer_widget.side_filter.currentText() == "All" and self.viewer_widget.bbox_source_filter.currentText() == "All" and self.viewer_widget.bbox_ok_filter.currentText() == "All"
+            }
+        for row in range(self.components_table.rowCount()):
+            item = self.components_table.item(row, 1)
+            reference = item.data(Qt.ItemDataRole.UserRole) if item else None
+            hide = bool(visible_set) and isinstance(reference, str) and reference not in visible_set
+            self.components_table.setRowHidden(row, hide)
 
     def save_results(self) -> None:
         if not self.results:
             QMessageBox.information(self, "Sin resultados", "Procesa primero un fichero o carpeta.")
             return
-
         output_text = self.output_edit.text().strip()
         if not output_text:
             self.save_results_as()
             return
-
         self._save_to_directory(Path(output_text))
 
     def save_results_as(self) -> None:
         if not self.results:
             QMessageBox.information(self, "Sin resultados", "Procesa primero un fichero o carpeta.")
             return
-
         path = QFileDialog.getExistingDirectory(self, "Guardar como", self.output_edit.text() or str(Path.cwd()))
         if not path:
             return
-
         self.output_edit.setText(path)
         self.auto_output_path = None
         self._save_to_directory(Path(path))
@@ -418,6 +515,67 @@ class MainWindow(QMainWindow):
         except Exception as exc:
             QMessageBox.critical(self, "Error al guardar", str(exc))
             self._append_log(f"Error al guardar: {exc}")
+
+    def export_raster_image(self) -> None:
+        model = self._current_model()
+        if not model:
+            QMessageBox.information(self, "Sin PCB", "Procesa y selecciona una PCB primero.")
+            return
+        destination, selected_filter = QFileDialog.getSaveFileName(
+            self,
+            "Export raster image",
+            str(model.pcb_path.with_suffix(".png")),
+            "PNG (*.png);;JPEG (*.jpg *.jpeg)",
+        )
+        if not destination:
+            return
+        dialog = RasterExportDialog(model, self)
+        if dialog.exec() != dialog.DialogCode.Accepted:
+            return
+        options = dialog.options()
+        state = self.viewer_widget.capture_visibility_state()
+        try:
+            self.viewer_widget.apply_export_tokens(options.include_tokens)
+            suffix = Path(destination).suffix.lower()
+            image_format = "jpg" if suffix in {".jpg", ".jpeg"} or "jpeg" in selected_filter.lower() else "png"
+            export_scene_to_raster(
+                self.viewer_widget.scene,
+                self.viewer_widget.board_rect(),
+                destination,
+                options.width_px,
+                options.height_px,
+                image_format,
+            )
+        finally:
+            self.viewer_widget.restore_visibility_state(state)
+        self.statusBar().showMessage(f"Raster exportado en {destination}", 5000)
+        self._append_log(f"Raster exportado en {destination}")
+
+    def export_vector_image(self) -> None:
+        model = self._current_model()
+        if not model:
+            QMessageBox.information(self, "Sin PCB", "Procesa y selecciona una PCB primero.")
+            return
+        destination, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export vector image",
+            str(model.pcb_path.with_suffix(".svg")),
+            "SVG (*.svg)",
+        )
+        if not destination:
+            return
+        dialog = VectorExportDialog(self)
+        if dialog.exec() != dialog.DialogCode.Accepted:
+            return
+        options = dialog.options()
+        state = self.viewer_widget.capture_visibility_state()
+        try:
+            self.viewer_widget.apply_export_tokens(options.include_tokens)
+            export_scene_to_svg(self.viewer_widget.scene, self.viewer_widget.board_rect(), destination, model)
+        finally:
+            self.viewer_widget.restore_visibility_state(state)
+        self.statusBar().showMessage(f"SVG exportado en {destination}", 5000)
+        self._append_log(f"SVG exportado en {destination}")
 
     def open_results_directory(self) -> None:
         target = self.output_edit.text().strip() or (str(self.active_output_dir) if self.active_output_dir else "")
