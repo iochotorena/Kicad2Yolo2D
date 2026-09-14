@@ -56,6 +56,7 @@ class MainWindow(QMainWindow):
 
         self.results = []
         self.active_output_dir: Path | None = None
+        self.auto_output_path: str | None = None
         self.worker_thread: QThread | None = None
         self.worker: ProcessingWorker | None = None
 
@@ -212,12 +213,16 @@ class MainWindow(QMainWindow):
         path = QFileDialog.getExistingDirectory(self, "Seleccionar carpeta de salida", self.output_edit.text() or str(Path.cwd()))
         if path:
             self.output_edit.setText(path)
+            self.auto_output_path = None
 
     def set_source_path(self, path: str) -> None:
         source = Path(path)
         self.source_edit.setText(str(source))
-        if not self.output_edit.text():
-            self.output_edit.setText(str(default_output_directory(source)))
+        default_output = str(default_output_directory(source))
+        current_output = self.output_edit.text().strip()
+        if not current_output or current_output == self.auto_output_path:
+            self.output_edit.setText(default_output)
+            self.auto_output_path = default_output
 
     def process_current_source(self) -> None:
         source_text = self.source_edit.text().strip()
@@ -232,6 +237,8 @@ class MainWindow(QMainWindow):
 
         output_text = self.output_edit.text().strip() or str(default_output_directory(source))
         self.output_edit.setText(output_text)
+        if output_text == str(default_output_directory(source)):
+            self.auto_output_path = output_text
 
         self._set_processing_state(True)
         self.worker_thread = QThread(self)
@@ -369,6 +376,7 @@ class MainWindow(QMainWindow):
             return
 
         self.output_edit.setText(path)
+        self.auto_output_path = None
         self._save_to_directory(Path(path))
 
     def _save_to_directory(self, directory: Path) -> None:

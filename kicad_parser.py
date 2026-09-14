@@ -29,6 +29,17 @@ def rotate_point(x: float, y: float, angle_deg: float) -> tuple[float, float]:
     return x * cos_a - y * sin_a, x * sin_a + y * cos_a
 
 
+def _circle_extents(center: tuple[float, float], edge: tuple[float, float]) -> list[tuple[float, float]]:
+    radius = math.dist(center, edge)
+    center_x, center_y = center
+    return [
+        (center_x - radius, center_y),
+        (center_x + radius, center_y),
+        (center_x, center_y - radius),
+        (center_x, center_y + radius),
+    ]
+
+
 def parse_pcb_file(filepath: str | Path) -> list[dict]:
     """Parse a KiCad PCB file and extract footprint information."""
     path = Path(filepath)
@@ -189,12 +200,15 @@ def parse_pcb_dimensions(filepath: str | Path) -> PCBDimensions:
         end_matches = re.findall(r"\(end\s+([\d.-]+)\s+([\d.-]+)\)", element)
         mid_matches = re.findall(r"\(mid\s+([\d.-]+)\s+([\d.-]+)\)", element)
         xy_matches = re.findall(r"\(xy\s+([\d.-]+)\s+([\d.-]+)\)", element)
+        center_matches = re.findall(r"\(center\s+([\d.-]+)\s+([\d.-]+)\)", element)
 
         for match in start_matches + end_matches + mid_matches + xy_matches:
             all_points.append((float(match[0]), float(match[1])))
 
-        if re.findall(r"\(center\s+([\d.-]+)\s+([\d.-]+)\)", element):
-            pass
+        if center_matches and end_matches:
+            center = (float(center_matches[0][0]), float(center_matches[0][1]))
+            edge = (float(end_matches[0][0]), float(end_matches[0][1]))
+            all_points.extend(_circle_extents(center, edge))
 
     if not all_points:
         raise ValueError("No Edge.Cuts elements found in PCB file")
