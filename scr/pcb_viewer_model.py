@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from .kicad_extract import ProcessingResult
-from .kicad_parser import PCBDimensions, rotate_point
+from .kicad_parser import PCBDimensions, transform_footprint_point
 
 PAD_REPAIR_MARGIN_MM = 0.5
 
@@ -211,8 +211,7 @@ def _parse_point_list(text: str) -> list[tuple[float, float]]:
 
 
 def _transform_point(point: tuple[float, float], origin: tuple[float, float], rotation: float) -> tuple[float, float]:
-    rx, ry = rotate_point(point[0], point[1], rotation)
-    return origin[0] + rx, origin[1] + ry
+    return transform_footprint_point(point[0], point[1], origin[0], origin[1], rotation)
 
 
 def _rect_from_points(points: list[tuple[float, float]]) -> Rect:
@@ -294,11 +293,11 @@ def _pad_rect(center: tuple[float, float], size: tuple[float, float], rotation: 
         (half_width, half_height),
         (-half_width, half_height),
     ]
-    rotated = []
-    for corner in corners:
-        rx, ry = rotate_point(corner[0], corner[1], rotation)
-        rotated.append((center[0] + rx, center[1] + ry))
-    return _rect_from_points(rotated)
+    transformed = [
+        transform_footprint_point(corner[0], corner[1], center[0], center[1], rotation)
+        for corner in corners
+    ]
+    return _rect_from_points(transformed)
 
 
 def _calculate_pad_bbox(pads: list[PadData], margin: float = 0.0) -> Rect | None:
