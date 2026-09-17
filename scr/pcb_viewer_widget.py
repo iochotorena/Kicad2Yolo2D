@@ -32,6 +32,8 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from shiboken6 import isValid
+
 from .pcb_viewer_model import BoardModel, BBoxData, FootprintData, GraphicPrimitive, PRIMARY_LAYER_ORDER, Rect
 
 LAYER_COLORS = {
@@ -304,13 +306,25 @@ class PCBViewerWidget(QWidget):
 
     def load_model(self, model: BoardModel) -> None:
         self.model = model
-        self.scene.clear()
-        self.layer_items.clear()
-        self.selectable_items.clear()
-        self.selector_references.clear()
-        self.highlight_items.clear()
-        self.warning_items.clear()
-        self.reference_items.clear()
+
+        # IMPORTANT:
+        # QGraphicsScene.clear() destroys all QGraphicsItem C++ objects.
+        # During this process selectionChanged may be emitted.
+        # Drop our Python references first and suspend selection handling so
+        # callbacks cannot touch already-deleted C++ objects.
+        self._suspend_selection_signal = True
+        try:
+            self.layer_items.clear()
+            self.selectable_items.clear()
+            self.selector_references.clear()
+            self.highlight_items.clear()
+            self.warning_items.clear()
+            self.reference_items.clear()
+
+            self.scene.clear()
+        finally:
+            self._suspend_selection_signal = False
+
         self.footprints_by_reference = {
             footprint.reference: footprint for footprint in model.footprints if footprint.reference
         }
@@ -657,8 +671,12 @@ class PCBViewerWidget(QWidget):
         self._set_selected_reference(reference, emit_signal=True, center=False)
 
     def _set_selected_reference(self, reference: str | None, emit_signal: bool, center: bool) -> None:
-        for ref, item in self.highlight_items.items():
+        for ref, item in list(self.highlight_items.items()):
+            if not isValid(item):
+                self.highlight_items.pop(ref, None)
+                continue
             item.setVisible(ref == reference)
+
         if reference and center:
             self.center_on_reference(reference)
         self._populate_inspector(reference)
@@ -797,16 +815,28 @@ class PCBViewerWidget(QWidget):
         if selected_reference and selected_reference not in self.visible_references:
             selected_reference = None
             self._suspend_selection_signal = True
-            self.scene.clearSelection()
-            self._suspend_selection_signal = False
+            try:
+                self.scene.clearSelection()
+            finally:
+                self._suspend_selection_signal = False
+
         for layer_name, records in self.layer_items.items():
-            opacity = (self.layer_widgets.get(layer_name).slider.value() / 100.0) if layer_name in self.layer_widgets else 1.0
+            opacity = (
+                self.layer_widgets.get(layer_name).slider.value() / 100.0
+                if layer_name in self.layer_widgets
+                else 1.0
+            )
             for record in records:
+                if not isValid(record.item):
+                    continue
+
                 visible = self._record_visible(record)
                 if record.role == "highlight" and record.reference != selected_reference:
                     visible = False
+
                 record.item.setVisible(visible)
                 record.item.setOpacity(1.0 if record.role == "selector" else opacity)
+
         self._populate_inspector(selected_reference)
         self.visibleReferencesChanged.emit(sorted(self.visible_references))
 
@@ -822,26 +852,40 @@ class PCBViewerWidget(QWidget):
         )
 
     def current_reference(self) -> str | None:
-        for ref, item in self.highlight_items.items():
+        for ref, item in list(self.highlight_items.items()):
+            if not isValid(item):
+                self.highlight_items.pop(ref, None)
+                continue
             if item.isVisible():
                 return ref
         return None
 
     def select_reference(self, reference: str, center: bool = False) -> None:
-        if reference not in self.selectable_items:
+        item = self.selectable_items.get(reference)
+
+        if item is None or not isValid(item):
+            self.selectable_items.pop(reference, None)
             self._set_selected_reference(None, emit_signal=False, center=False)
             return
+
         self._suspend_selection_signal = True
-        self.scene.clearSelection()
-        self.selectable_items[reference].setSelected(True)
-        self._suspend_selection_signal = False
+        try:
+            self.scene.clearSelection()
+            item.setSelected(True)
+        finally:
+            self._suspend_selection_signal = False
+
         self._set_selected_reference(reference, emit_signal=False, center=center)
 
     def center_on_reference(self, reference: str) -> None:
-        if reference in self.highlight_items:
-            self.view.centerOn(self.highlight_items[reference])
-        elif reference in self.selectable_items:
-            self.view.centerOn(self.selectable_items[reference])
+        highlight = self.highlight_items.get(reference)
+        if highlight is not None and isValid(highlight):
+            self.view.centerOn(highlight)
+            return
+
+        selectable = self.selectable_items.get(reference)
+        if selectable is not None and isValid(selectable):
+            self.view.centerOn(selectable)
 
     def center_on_selection(self) -> None:
         reference = self.current_reference()
