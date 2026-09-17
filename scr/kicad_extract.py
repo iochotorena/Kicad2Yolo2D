@@ -107,6 +107,7 @@ def extract_components(filepath: str | Path) -> tuple[list[dict], ExtractionStat
                     "bbox_center_y": bbox_data["bbox_center_y"],
                     "width": bbox_data["width"],
                     "height": bbox_data["height"],
+                    "rotation": component.get("rotation", 0.0),
                     "bbox_source": bbox_source or "",
                 }
             )
@@ -135,6 +136,7 @@ def write_components_csv(components_data: list[dict], output_path: str | Path) -
         "bbox_center_y",
         "width",
         "height",
+        "rotation",
         "bbox_source",
     ]
     with output_path.open("w", newline="", encoding="utf-8") as csvfile:
@@ -161,6 +163,7 @@ def read_components_csv(csv_path: str | Path) -> list[dict]:
                     "bbox_center_y": float(row["bbox_center_y"]),
                     "width": float(row["width"]),
                     "height": float(row["height"]),
+                    "rotation": float(row.get("rotation", 0.0) or 0.0),
                     "bbox_source": row.get("bbox_source", ""),
                 }
             )
